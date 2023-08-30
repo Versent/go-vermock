@@ -146,8 +146,14 @@ func doCall[T any](key *T, name string, in []reflect.Value, out []reflect.Value)
 	}
 	results := CallDelegate(key, name, outTypes, in...)
 	last := len(outTypes) - 1
+	var err error
+	if len(results) != len(outTypes) {
+		err = fmt.Errorf("unexpected number of results: expected %d, got %d", len(outTypes), len(results))
+	}
 	for i := range out {
-		var err error
+		if err != nil {
+			break
+		}
 		if !results[i].IsZero() {
 			if results[i].Type().AssignableTo(outTypes[i]) {
 				out[i].Elem().Set(results[i])
@@ -155,14 +161,14 @@ func doCall[T any](key *T, name string, in []reflect.Value, out []reflect.Value)
 				err = fmt.Errorf("unexpected type %T for result parameter %T", results[i].Interface(), out[i].Interface())
 			}
 		}
-		if err != nil {
-			t2 := outTypes[last]
-			if reflect.TypeOf(err).ConvertibleTo(t2) {
-				out[last].Elem().Set(reflect.ValueOf(err).Convert(t2))
-				return
-			} else {
-				panic(err)
-			}
+	}
+	if err != nil {
+		registry[key].Error(err)
+		t2 := outTypes[last]
+		if reflect.TypeOf(err).ConvertibleTo(t2) {
+			out[last].Elem().Set(reflect.ValueOf(err).Convert(t2))
+		} else {
+			panic(err)
 		}
 	}
 }
