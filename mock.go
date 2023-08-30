@@ -1,3 +1,5 @@
+// Package mock provides a flexible and functional mocking framework for Go
+// tests.
 package mock
 
 import (
@@ -8,19 +10,25 @@ import (
 )
 
 var (
+	// registry holds the active mock objects.
 	registry = make(map[any]*mock)
 )
 
+// Delegates maps function names to their Delegate implementations.
 type Delegates = map[string]*Delegate
 
+// Option defines a function that configures a mock object.
 type Option[T any] func(*T)
 
+// mock represents a mock object.
 type mock struct {
 	testing.TB
 	sync.Mutex
 	Delegates
 }
 
+// New creates a new mock object of type T and applies the given options.
+// It panics if a mock for a zero-sized type is constructed more than once.
 func New[T any](t testing.TB, opts ...Option[T]) *T {
 	key := new(T)
 	mock := &mock{
@@ -43,6 +51,8 @@ func New[T any](t testing.TB, opts ...Option[T]) *T {
 	return key
 }
 
+// Expect registers a function to be called exactly once when a method with the
+// given name is invoked on the mock object.
 func Expect[T any](name string, fn any) Option[T] {
 	return func(key *T) {
 		mock := registry[key]
@@ -51,6 +61,8 @@ func Expect[T any](name string, fn any) Option[T] {
 	}
 }
 
+// ExpectMany registers a function to be called at least once times for a
+// method with the given name on the mock object.
 func ExpectMany[T any](name string, fn any) Option[T] {
 	return func(key *T) {
 		mock := registry[key]

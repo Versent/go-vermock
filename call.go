@@ -7,32 +7,42 @@ import (
 	"testing"
 )
 
+// Callable defines an interface for delegates to call test functions.
 type Callable interface {
 	Call(testing.TB, int, []reflect.Value) []reflect.Value
 }
 
+// MultiCallable defines an interface for Callable objects that can be called
+// multiple times.
 type MultiCallable interface {
 	MultiCallable() bool
 }
 
+// Callables is a slice of Callable objects.
 type Callables []Callable
 
+// Len returns the number of Callables in the slice.
 func (c Callables) Len() int {
 	return len(c)
 }
 
+// Cap returns the capacity of the slice of Callables.
 func (c Callables) Cap() int {
 	return cap(c)
 }
 
+// Append adds one or more Callables to the slice.
 func (c Callables) Append(callable ...Callable) Callables {
 	return append(c, callable...)
 }
 
+// Call invokes the Callable at the given index with the given arguments.
 func (c Callables) Call(t testing.TB, i int, in []reflect.Value) []reflect.Value {
 	return c[i].Call(t, i, in)
 }
 
+// MultiCallable returns true if the last Callable in the slice is a
+// MultiCallable.
 func (c Callables) MultiCallable() bool {
 	if len(c) == 0 {
 		return false
@@ -43,8 +53,10 @@ func (c Callables) MultiCallable() bool {
 	return false
 }
 
+// Value is a Callable that wraps a reflect.Value.
 type Value reflect.Value
 
+// Call invokes the Callable with the given arguments.
 func (v Value) Call(t testing.TB, count int, in []reflect.Value) []reflect.Value {
 	fn := reflect.Value(v)
 	if fn.Kind() != reflect.Func {
@@ -60,17 +72,27 @@ func (v Value) Call(t testing.TB, count int, in []reflect.Value) []reflect.Value
 	}
 }
 
+// multi is a Callable that wraps a reflect.Value and implements MultiCallable.
 type multi Value
 
-func (v multi) MultiCallable() {}
+// MultiCallable returns true.
+func (v multi) MultiCallable() bool { return true }
 
+// Call invokes the Callable with the given arguments.
 func (v multi) Call(t testing.TB, count int, in []reflect.Value) []reflect.Value {
 	in = append([]reflect.Value{reflect.ValueOf(count)}, in...)
 	return Value(v).Call(t, count, in)
 }
 
+// errType is the type of the error interface.
 var errType = reflect.TypeOf((*error)(nil)).Elem()
 
+// CallDelegate calls the next Callable of the Delegate with the given name and
+// given arguments.  If the next Callable does not exist or the last Callable
+// is not MultiCallable, then the mock object will be marked as failed.  In the
+// case of a fail and if the delegate function returns an error as its last
+// return value, then the error will be set and returned otherwise the function
+// returns zero values for all of the return values.
 func CallDelegate[T any](key *T, name string, outTypes []reflect.Type, in ...reflect.Value) (out []reflect.Value) {
 	mock := registry[key]
 	t := mock.TB
@@ -101,15 +123,7 @@ func CallDelegate[T any](key *T, name string, outTypes []reflect.Type, in ...ref
 	return fn.Call(t, delegate.callCount, in)
 }
 
-func multiCallable(funcs Callables) (fn Callable, ok bool) {
-	if len(funcs) == 0 {
-		return
-	}
-	fn = funcs[len(funcs)-1]
-	_, ok = fn.(MultiCallable)
-	return
-}
-
+// toValues converts the given values to reflect.Values.
 func toValues(in ...any) (out []reflect.Value) {
 	out = make([]reflect.Value, len(in))
 	for i, v := range in {
@@ -118,6 +132,12 @@ func toValues(in ...any) (out []reflect.Value) {
 	return
 }
 
+// doCall calls the next Callable of the Delegate with the given name and given
+// arguments and sets the given out values to the return values of the Callable.
+// If the types of the return values do not match the types of the out values,
+// or if the number of return values does not match the number of out values,
+// then the last out value will be set to an error if it is assignable to an
+// error type otherwise this function will panic.
 func doCall[T any](key *T, name string, in []reflect.Value, out []reflect.Value) {
 	registry[key].Helper()
 	outTypes := make([]reflect.Type, len(out))
