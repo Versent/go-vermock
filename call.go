@@ -56,7 +56,8 @@ func (c Callables) MultiCallable() bool {
 // Value is a Callable that wraps a reflect.Value.
 type Value reflect.Value
 
-// Call invokes the Callable with the given arguments.
+// Call invokes the Callable with the given arguments.  If the Callable is variadic,
+// the last argument must be passed as a slice, otherwise this method panics.
 func (v Value) Call(t testing.TB, count int, in []reflect.Value) []reflect.Value {
 	fn := reflect.Value(v)
 	if fn.Kind() != reflect.Func {
@@ -88,11 +89,13 @@ func (v multi) Call(t testing.TB, count int, in []reflect.Value) []reflect.Value
 var errType = reflect.TypeOf((*error)(nil)).Elem()
 
 // CallDelegate calls the next Callable of the Delegate with the given name and
-// given arguments.  If the next Callable does not exist or the last Callable
-// is not MultiCallable, then the mock object will be marked as failed.  In the
-// case of a fail and if the delegate function returns an error as its last
-// return value, then the error will be set and returned otherwise the function
-// returns zero values for all of the return values.
+// given arguments.  If the delegate is variadic then the last argument must be
+// a slice, otherwise this function panics.  If the next Callable does not
+// exist or the last Callable is not MultiCallable, then the mock object will
+// be marked as failed.  In the case of a fail and if the delegate function
+// returns an error as its last return value, then the error will be set and
+// returned otherwise the function returns zero values for all of the return
+// values.
 func CallDelegate[T any](key *T, name string, outTypes []reflect.Type, in ...reflect.Value) (out []reflect.Value) {
 	mock := registry[key]
 	t := mock.TB
