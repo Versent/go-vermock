@@ -18,7 +18,7 @@ func AssertExpectedCalls(t testing.TB, mocks ...any) {
 		}
 
 		for name, delegate := range mock.Delegates {
-			if count := delegate.callCount; count < delegate.Len() {
+			if count := delegate.callCount; int(count) < delegate.Len() {
 				if count == 0 {
 					t.Errorf("failed to make call to %s", name)
 				} else if count == 1 {

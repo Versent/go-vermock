@@ -9,7 +9,7 @@ import (
 
 // Callable defines an interface for delegates to call test functions.
 type Callable interface {
-	Call(testing.TB, int, []reflect.Value) []reflect.Value
+	Call(testing.TB, CallCount, []reflect.Value) []reflect.Value
 }
 
 // MultiCallable defines an interface for Callable objects that can be called
@@ -37,8 +37,16 @@ func (c Callables) Append(callable ...Callable) Callables {
 }
 
 // Call invokes the Callable at the given index with the given arguments.
-func (c Callables) Call(t testing.TB, i int, in []reflect.Value) []reflect.Value {
-	return c[i].Call(t, i, in)
+// Panics if the index is out of range and the last Callable is not a
+// MultiCallable.
+func (c Callables) Call(t testing.TB, index CallCount, in []reflect.Value) []reflect.Value {
+	if int(index) < len(c) {
+		return c[index].Call(t, index, in)
+	}
+	if c.MultiCallable() {
+		return c[len(c)-1].Call(t, index, in)
+	}
+	panic(fmt.Sprintf("Callables.Call: index out of range [%d] with length %d", index, len(c)))
 }
 
 // MultiCallable returns true if the last Callable in the slice is a
@@ -58,10 +66,10 @@ type Value reflect.Value
 
 // Call invokes the Callable with the given arguments.  If the Callable is variadic,
 // the last argument must be passed as a slice, otherwise this method panics.
-func (v Value) Call(t testing.TB, count int, in []reflect.Value) []reflect.Value {
+func (v Value) Call(t testing.TB, i CallCount, in []reflect.Value) []reflect.Value {
 	fn := reflect.Value(v)
 	if fn.Kind() != reflect.Func {
-		panic(fmt.Sprintf("expected func, got %T", v))
+		panic(fmt.Sprintf("Value.Call: expected func, got %T", v))
 	}
 	if fn.Type().NumIn() == len(in)+1 {
 		in = append([]reflect.Value{reflect.ValueOf(t)}, in...)
@@ -80,9 +88,13 @@ type multi Value
 func (v multi) MultiCallable() bool { return true }
 
 // Call invokes the Callable with the given arguments.
-func (v multi) Call(t testing.TB, count int, in []reflect.Value) []reflect.Value {
-	in = append([]reflect.Value{reflect.ValueOf(count)}, in...)
-	return Value(v).Call(t, count, in)
+func (v multi) Call(t testing.TB, i CallCount, in []reflect.Value) []reflect.Value {
+	funcType := reflect.Value(v).Type()
+	if funcType.NumIn() > 0 && funcType.In(0) == reflect.TypeOf(i) ||
+		funcType.NumIn() > 1 && funcType.In(1) == reflect.TypeOf(i) {
+		in = append([]reflect.Value{reflect.ValueOf(i)}, in...)
+	}
+	return Value(v).Call(t, i, in)
 }
 
 // errType is the type of the error interface.
@@ -105,10 +117,7 @@ func CallDelegate[T any](key *T, name string, outTypes []reflect.Type, in ...ref
 	delegate.Lock()
 	defer delegate.Unlock()
 
-	var fn Callable
-	if delegate.callCount < delegate.Len() {
-		fn = delegate
-	} else if !delegate.MultiCallable() {
+	if int(delegate.callCount) >= delegate.Len() && !delegate.MultiCallable() {
 		msg := "unexpected call to " + name
 		t.Error(msg)
 		out = make([]reflect.Value, 0, len(outTypes))
@@ -123,7 +132,7 @@ func CallDelegate[T any](key *T, name string, outTypes []reflect.Type, in ...ref
 	}
 	t.Logf("call to %s: %d", name, delegate.callCount)
 	defer func() { delegate.callCount++ }()
-	return fn.Call(t, delegate.callCount, in)
+	return delegate.Call(t, delegate.callCount, in)
 }
 
 // toValues converts the given values to reflect.Values.

@@ -53,7 +53,12 @@ func New[T any](t testing.TB, opts ...Option[T]) *T {
 
 // Expect registers a function to be called exactly once when a method with the
 // given name is invoked on the mock object.
+// Panics if fn is not a function.
 func Expect[T any](name string, fn any) Option[T] {
+	funcType := reflect.TypeOf(fn)
+	if funcType.Kind() != reflect.Func {
+		panic(fmt.Sprintf("mock.Expect: expected function, got %T", fn))
+	}
 	return func(key *T) {
 		mock := registry[key]
 		mock.Helper()
@@ -61,9 +66,14 @@ func Expect[T any](name string, fn any) Option[T] {
 	}
 }
 
-// ExpectMany registers a function to be called at least once times for a
-// method with the given name on the mock object.
+// ExpectMany registers a function to be called at least once for a method with
+// the given name on the mock object.
+// Panics if fn is not a function.
 func ExpectMany[T any](name string, fn any) Option[T] {
+	funcType := reflect.TypeOf(fn)
+	if funcType.Kind() != reflect.Func {
+		panic(fmt.Sprintf("mock.ExpectMany: expected function, got %T", fn))
+	}
 	return func(key *T) {
 		mock := registry[key]
 		mock.Helper()

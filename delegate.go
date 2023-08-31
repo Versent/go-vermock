@@ -2,11 +2,13 @@ package mock
 
 import "sync"
 
+type CallCount int
+
 // Delegate represents a function that is expected to be called.
 type Delegate struct {
 	sync.Mutex
 	Callables
-	callCount int
+	callCount CallCount
 }
 
 // Append adds one or more callables to the delegate.

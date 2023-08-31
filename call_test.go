@@ -31,7 +31,7 @@ func TestDoCall(t *testing.T) {
 		},
 		{
 			name: "Matching types and values, multi",
-			callables: Callables{multi(reflect.ValueOf(func(t testing.TB, count int, in string) string {
+			callables: Callables{multi(reflect.ValueOf(func(t testing.TB, count CallCount, in string) string {
 				if count != 0 {
 					t.Errorf("unexpected count: expected %d, got %d", 0, count)
 				}
