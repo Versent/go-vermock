@@ -18,12 +18,12 @@ func TestDoCall(t *testing.T) {
 	}{
 		{
 			name: "Matching types and values",
-			callables: Callables{Value(reflect.ValueOf(func(t testing.TB, in string) string {
+			callables: Callables{Value{Value: reflect.ValueOf(func(t testing.TB, in string) string {
 				if in != "input" {
 					t.Errorf("unexpected input: expected %q, got %q", "input", in)
 				}
 				return "result"
-			}))},
+			})}},
 			in:         toValues("input"),
 			out:        toValues(new(string)),
 			results:    toValues("result"),
@@ -31,7 +31,7 @@ func TestDoCall(t *testing.T) {
 		},
 		{
 			name: "Matching types and values, multi",
-			callables: Callables{multi(reflect.ValueOf(func(t testing.TB, count CallCount, in string) string {
+			callables: Callables{multi{Value: reflect.ValueOf(func(t testing.TB, count CallCount, in string) string {
 				if count != 0 {
 					t.Errorf("unexpected count: expected %d, got %d", 0, count)
 				}
@@ -39,7 +39,7 @@ func TestDoCall(t *testing.T) {
 					t.Errorf("unexpected input: expected %q, got %q", "input", in)
 				}
 				return "result"
-			}))},
+			})}},
 			in:         toValues("input"),
 			out:        toValues(new(string)),
 			results:    toValues("result"),
@@ -47,12 +47,12 @@ func TestDoCall(t *testing.T) {
 		},
 		{
 			name: "Matching types and values, variadic",
-			callables: Callables{Value(reflect.ValueOf(func(t testing.TB, in ...string) string {
+			callables: Callables{Value{Value: reflect.ValueOf(func(t testing.TB, in ...string) string {
 				if in[0] != "input" {
 					t.Errorf("unexpected input: expected %q, got %q", "input", in)
 				}
 				return "result"
-			}))},
+			})}},
 			in:         toValues([]string{"input"}),
 			out:        toValues(new(string)),
 			results:    toValues("result"),
@@ -60,9 +60,9 @@ func TestDoCall(t *testing.T) {
 		},
 		{
 			name: "Type mismatch",
-			callables: Callables{Value(reflect.ValueOf(func() string {
+			callables: Callables{Value{Value: reflect.ValueOf(func() string {
 				return "result"
-			}))},
+			})}},
 			in:          toValues(),
 			out:         toValues(new(int)),
 			results:     toValues(0),
@@ -71,7 +71,7 @@ func TestDoCall(t *testing.T) {
 		},
 		{
 			name:        "Unexpected number of results, panic",
-			callables:   Callables{Value(reflect.ValueOf(func() {}))},
+			callables:   Callables{Value{Value: reflect.ValueOf(func() {})}},
 			in:          toValues(),
 			out:         toValues(new(int)),
 			results:     toValues(0),
@@ -80,7 +80,7 @@ func TestDoCall(t *testing.T) {
 		},
 		{
 			name:       "Unexpected number of results, error",
-			callables:  Callables{Value(reflect.ValueOf(func() {}))},
+			callables:  Callables{Value{Value: reflect.ValueOf(func() {})}},
 			in:         toValues(),
 			out:        toValues(new(error)),
 			results:    toValues(errors.New("unexpected number of results: expected 1, got 0")),

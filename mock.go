@@ -20,11 +20,20 @@ type Delegates = map[string]*Delegate
 // Option defines a function that configures a mock object.
 type Option[T any] func(*T)
 
+func Options[T any](opts ...Option[T]) Option[T] {
+	return func(key *T) {
+		for _, opt := range opts {
+			opt(key)
+		}
+	}
+}
+
 // mock represents a mock object.
 type mock struct {
 	testing.TB
 	sync.Mutex
 	Delegates
+	ordered
 }
 
 // New creates a new mock object of type T and applies the given options.
@@ -48,6 +57,7 @@ func New[T any](t testing.TB, opts ...Option[T]) *T {
 		}
 		opt(key)
 	}
+	mock.ordinal = 0
 	return key
 }
 
@@ -62,7 +72,14 @@ func Expect[T any](name string, fn any) Option[T] {
 	return func(key *T) {
 		mock := registry[key]
 		mock.Helper()
-		delegateByName(mock, name).Append(Value(reflect.ValueOf(fn)))
+		delegate := delegateByName(mock, name)
+		if mock.inOrder {
+			mock.ordinal++
+		}
+		delegate.Append(Value{
+			Value:   reflect.ValueOf(fn),
+			ordered: mock.ordered,
+		})
 	}
 }
 
@@ -77,6 +94,12 @@ func ExpectMany[T any](name string, fn any) Option[T] {
 	return func(key *T) {
 		mock := registry[key]
 		mock.Helper()
-		delegateByName(mock, name).Append(multi(reflect.ValueOf(fn)))
+		if mock.inOrder {
+			mock.ordinal++
+		}
+		delegateByName(mock, name).Append(multi{
+			Value:   reflect.ValueOf(fn),
+			ordered: mock.ordered,
+		})
 	}
 }

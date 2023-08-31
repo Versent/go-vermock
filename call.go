@@ -62,12 +62,15 @@ func (c Callables) MultiCallable() bool {
 }
 
 // Value is a Callable that wraps a reflect.Value.
-type Value reflect.Value
+type Value struct {
+	reflect.Value
+	ordered
+}
 
 // Call invokes the Callable with the given arguments.  If the Callable is variadic,
 // the last argument must be passed as a slice, otherwise this method panics.
 func (v Value) Call(t testing.TB, i CallCount, in []reflect.Value) []reflect.Value {
-	fn := reflect.Value(v)
+	fn := v.Value
 	if fn.Kind() != reflect.Func {
 		panic(fmt.Sprintf("Value.Call: expected func, got %T", v))
 	}
@@ -89,7 +92,7 @@ func (v multi) MultiCallable() bool { return true }
 
 // Call invokes the Callable with the given arguments.
 func (v multi) Call(t testing.TB, i CallCount, in []reflect.Value) []reflect.Value {
-	funcType := reflect.Value(v).Type()
+	funcType := v.Value.Type()
 	if funcType.NumIn() > 0 && funcType.In(0) == reflect.TypeOf(i) ||
 		funcType.NumIn() > 1 && funcType.In(1) == reflect.TypeOf(i) {
 		in = append([]reflect.Value{reflect.ValueOf(i)}, in...)
@@ -130,7 +133,27 @@ func CallDelegate[T any](key *T, name string, outTypes []reflect.Type, in ...ref
 		}
 		return
 	}
-	t.Logf("call to %s: %d", name, delegate.callCount)
+
+	var (
+		fn Value
+		ok bool
+	)
+	if int(delegate.callCount) < delegate.Len() {
+		fn, ok = delegate.Callables[delegate.callCount].(Value)
+	} else {
+		fn, ok = delegate.Callables[delegate.Len()-1].(Value)
+	}
+
+	if fn.inOrder {
+		mock.ordinal++
+	}
+
+	if ok && fn.ordinal != mock.ordinal {
+		err := fmt.Sprintf("out of order call to %s: expected %d, got %d", name, fn.ordinal, mock.ordinal)
+		t.Error(err)
+	}
+
+	t.Logf("call to %s: %d/%d", name, delegate.callCount, mock.ordinal)
 	defer func() { delegate.callCount++ }()
 	return delegate.Call(t, delegate.callCount, in)
 }
