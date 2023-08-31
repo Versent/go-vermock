@@ -12,6 +12,11 @@ func AssertExpectedCalls(t testing.TB, mocks ...any) {
 			continue
 		}
 
+		if mock, ok := key.(interface{ AssertExpectedCalls(testing.TB) }); ok {
+			mock.AssertExpectedCalls(t)
+			continue
+		}
+
 		mock, ok := registry[key]
 		if !ok {
 			t.Fatalf("mock not found: %T", key)
