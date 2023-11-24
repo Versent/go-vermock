@@ -63,6 +63,8 @@ func New[T any](t testing.TB, opts ...Option[T]) *T {
 
 // Expect registers a function to be called exactly once when a method with the
 // given name is invoked on the mock object.
+// The function signature of fn must match the named method signature,
+// except that the first argument may optionally be a testing.TB or *testing.T.
 // Panics if fn is not a function.
 func Expect[T any](name string, fn any) Option[T] {
 	funcType := reflect.TypeOf(fn)
@@ -85,6 +87,10 @@ func Expect[T any](name string, fn any) Option[T] {
 
 // ExpectMany registers a function to be called at least once for a method with
 // the given name on the mock object.
+// Like Expect, the arguments of fn must match the named method signature and may optionally be
+// preceded by a testing.TB or *testing.T.
+// In addition, the first argument of fn may optionally be of type CallCount, in such cases fn will
+// be passed the total number of times the method has been called (starting at 0).
 // Panics if fn is not a function.
 func ExpectMany[T any](name string, fn any) Option[T] {
 	funcType := reflect.TypeOf(fn)
