@@ -18,6 +18,18 @@ To use the mock module, ensure it is installed and imported in your project.
 import mock "github.com/Versent/go-mock"
 ```
 
+To use the mockgen command, simply run go run:
+
+```sh
+go run github.com/Versent/go-mock/cmd/mockgen
+```
+
+After running mockgen for the first time, go generate can be used to regenerate generated files:
+
+```sh
+go generate
+```
+
 ## Basic Usage
 
 1. **Define an Interface**
@@ -28,11 +40,11 @@ import mock "github.com/Versent/go-mock"
   package my
 
   type Getter interface {
-  	Get(string) (any, bool)
+  	Get(key string) (any, bool)
   }
 
   type Putter interface {
-  	Put(string, any) error
+  	Put(key string, value any) error
   }
   ```
 
@@ -91,6 +103,30 @@ import mock "github.com/Versent/go-mock"
 	mock.AssertExpectedCalls(t, m)
   }
   ```
+
+### Using mockgen
+
+Alternatively, creating a mock implementation and associated helpers can be automated with mockgen.
+Instead of implementing all the methods of your mock, simply declare the interfaces you want your
+mock to satisfy in an ordinary go file and let mockgen do the rest.
+
+To continue the example from above this file would look like:
+
+```go
+//go:build mockstub
+
+package my
+
+type mockObject struct {
+	Getter
+	Putter
+}
+```
+
+This is an ordinary go source file with a special build tag: mockstub.  After running mockgen (see
+Installation above) a new file called `mock_gen.go` will be created with a new definition of
+`mockObject` (the build tag ensures that these two definitions do not collide) containing all the
+generated methods and functions.
 
 ## Beyond Basic Usage
 
