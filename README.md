@@ -15,7 +15,7 @@ This module provides a number functions that can be used as building blocks for 
 To use the mock module, ensure it is installed and imported in your project.
 
 ```go
-import mock "gist.github.com/1bc0b2dc0e9680251778d289e5493826"
+import mock "github.com/Versent/go-mock"
 ```
 
 ## Basic Usage

@@ -3,7 +3,7 @@ package mock_test
 import (
 	"testing"
 
-	mock "gist.github.com/1bc0b2dc0e9680251778d289e5493826"
+	mock "github.com/Versent/go-mock"
 )
 
 func TestNew_identity(t *testing.T) {
