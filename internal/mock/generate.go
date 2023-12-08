@@ -270,139 +270,162 @@ func generateMockMethods(g *gen, iface *types.Interface, structName string) erro
 		methodName := method.Name()
 		sig := method.Type().(*types.Signature)
 
-		// Start building the function declaration
-		methDecl := &ast.FuncDecl{
-			Recv: &ast.FieldList{
-				List: []*ast.Field{
-					{
-						Names: []*ast.Ident{{Name: "m"}},
-						Type: &ast.StarExpr{
-							X: ast.NewIdent(structName),
-						},
-					},
-				},
-			},
-			Name: ast.NewIdent(methodName),
-			Type: &ast.FuncType{},
-		}
-
-		methDecl.Type.Params = fieldList("v", sig.Variadic(), sig.Params())
-		methDecl.Type.Results = fieldList("", false, sig.Results())
-
-		// Create a function body (block statement)
-		methDecl.Body = &ast.BlockStmt{List: []ast.Stmt{}}
-		call := &ast.CallExpr{
-			Fun: &ast.SelectorExpr{
-				X:   ast.NewIdent(g.resolveImportName("mock", "github.com/Versent/go-mock")),
-				Sel: ast.NewIdent(fmt.Sprintf("Call%d", sig.Results().Len())),
-			},
-			Args: []ast.Expr{
-				ast.NewIdent("m"),
-				&ast.BasicLit{Kind: token.STRING, Value: fmt.Sprintf("%q", methodName)},
-			},
-		}
-		forTuple("v", sig.Params(), func(_ int, name string, _ *types.Var) {
-			call.Args = append(call.Args, ast.NewIdent(name))
-		})
-		if sig.Results().Len() > 0 {
-			indices := make([]ast.Expr, sig.Results().Len())
-			call.Fun = &ast.IndexListExpr{
-				X:       call.Fun,
-				Indices: indices,
-			}
-			for i, field := range methDecl.Type.Results.List {
-				indices[i] = *clone(&field.Type)
-			}
-			methDecl.Body.List = append(methDecl.Body.List, &ast.ReturnStmt{
-				Results: []ast.Expr{call},
-			})
-		} else {
-			methDecl.Body.List = append(methDecl.Body.List, &ast.ExprStmt{
-				X: call,
-			})
-		}
-
-		delegateType := &ast.FuncType{
-			Params: &ast.FieldList{
-				List: []*ast.Field{{
-					Names: []*ast.Ident{{Name: "_"}},
-					Type: &ast.SelectorExpr{
-						X:   ast.NewIdent(g.resolveImportName("testing", "testing")),
-						Sel: ast.NewIdent("TB"),
-					},
-				}},
-			},
-		}
-		expDecl := &ast.FuncDecl{
-			Name: ast.NewIdent("Expect" + methodName),
-			Type: &ast.FuncType{
-				Results: &ast.FieldList{
-					List: []*ast.Field{{
-						Type: &ast.FuncType{
-							Params: &ast.FieldList{
-								List: []*ast.Field{{
-									Type: &ast.StarExpr{
-										X: ast.NewIdent(structName),
-									},
-								}},
-							},
-						},
-					}},
-				},
-				Params: &ast.FieldList{
-					List: []*ast.Field{{
-						Names: []*ast.Ident{{Name: "delegate"}},
-						Type:  delegateType,
-					}},
-				},
-			},
-			Body: &ast.BlockStmt{List: []ast.Stmt{
-				&ast.ReturnStmt{
-					Results: []ast.Expr{&ast.CallExpr{
-						Fun: &ast.IndexListExpr{
-							X: &ast.SelectorExpr{
-								X:   ast.NewIdent(g.resolveImportName("mock", "github.com/Versent/go-mock")),
-								Sel: ast.NewIdent("Expect"),
-							},
-							Indices: []ast.Expr{ast.NewIdent(structName)},
-						},
-						Args: []ast.Expr{
-							&ast.BasicLit{Kind: token.STRING, Value: fmt.Sprintf("%q", methodName)},
-							ast.NewIdent("delegate"),
-						},
-					}},
-				},
-			}},
-		}
-		forTuple("v", sig.Params(), func(_ int, name string, t *types.Var) {
-			delegateType.Params.List = append(delegateType.Params.List, &ast.Field{
-				Names: []*ast.Ident{{Name: name}},
-				Type:  ast.NewIdent(t.Type().String()),
-			})
-		})
-		forTuple("", sig.Results(), func(_ int, name string, t *types.Var) {
-			field := &ast.Field{
-				Type: ast.NewIdent(t.Type().String()),
-			}
-			if name != "" {
-				field.Names = []*ast.Ident{{Name: name}}
-			}
-			if delegateType.Results == nil {
-				delegateType.Results = &ast.FieldList{}
-			}
-			delegateType.Results.List = append(delegateType.Results.List, field)
-		})
+		methDecl := makeMockMethod(g, structName, methodName, sig)
+		expDecl := makeExpectFunc(g, "Expect", structName, methodName, sig)
+		manyDecl := makeExpectFunc(g, "ExpectMany", structName, methodName, sig)
 
 		// Generate the source code for the function
-		if err := g.addDecl(ast.NewIdent("Expect"+methodName), expDecl); err != nil {
+		if err := g.addDecl(expDecl.Name, expDecl); err != nil {
 			return err
 		}
-		if err := g.addDecl(ast.NewIdent(methodName), methDecl); err != nil {
+		if err := g.addDecl(manyDecl.Name, manyDecl); err != nil {
+			return err
+		}
+		if err := g.addDecl(methDecl.Name, methDecl); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+func makeMockMethod(g *gen, structName, methodName string, sig *types.Signature) (methDecl *ast.FuncDecl) {
+	// Start building the function declaration
+	methDecl = &ast.FuncDecl{
+		Recv: &ast.FieldList{
+			List: []*ast.Field{
+				{
+					Names: []*ast.Ident{{Name: "m"}},
+					Type: &ast.StarExpr{
+						X: ast.NewIdent(structName),
+					},
+				},
+			},
+		},
+		Name: ast.NewIdent(methodName),
+		Type: &ast.FuncType{},
+	}
+
+	methDecl.Type.Params = fieldList("v", sig.Variadic(), sig.Params())
+	methDecl.Type.Results = fieldList("", false, sig.Results())
+
+	// Create a function body (block statement)
+	methDecl.Body = &ast.BlockStmt{List: []ast.Stmt{}}
+	call := &ast.CallExpr{
+		Fun: &ast.SelectorExpr{
+			X:   ast.NewIdent(g.resolveImportName("mock", "github.com/Versent/go-mock")),
+			Sel: ast.NewIdent(fmt.Sprintf("Call%d", sig.Results().Len())),
+		},
+		Args: []ast.Expr{
+			ast.NewIdent("m"),
+			&ast.BasicLit{Kind: token.STRING, Value: fmt.Sprintf("%q", methodName)},
+		},
+	}
+	forTuple("v", sig.Params(), func(_ int, name string, _ *types.Var) {
+		call.Args = append(call.Args, ast.NewIdent(name))
+	})
+	if sig.Results().Len() > 0 {
+		indices := make([]ast.Expr, sig.Results().Len())
+		call.Fun = &ast.IndexListExpr{
+			X:       call.Fun,
+			Indices: indices,
+		}
+		for i, field := range methDecl.Type.Results.List {
+			indices[i] = *clone(&field.Type)
+		}
+		methDecl.Body.List = append(methDecl.Body.List, &ast.ReturnStmt{
+			Results: []ast.Expr{call},
+		})
+	} else {
+		methDecl.Body.List = append(methDecl.Body.List, &ast.ExprStmt{
+			X: call,
+		})
+	}
+
+	return
+}
+
+func makeExpectFunc(g *gen, funcName, structName, methodName string, sig *types.Signature) (funcDecl *ast.FuncDecl) {
+	delegateType := &ast.FuncType{
+		Params: &ast.FieldList{
+			List: []*ast.Field{{
+				Names: []*ast.Ident{{Name: "_"}},
+				Type: &ast.SelectorExpr{
+					X:   ast.NewIdent(g.resolveImportName("testing", "testing")),
+					Sel: ast.NewIdent("TB"),
+				},
+			}},
+		},
+	}
+	if funcName == "ExpectMany" {
+		delegateType.Params.List = append(delegateType.Params.List, &ast.Field{
+			Names: []*ast.Ident{{Name: "_"}},
+			Type: &ast.SelectorExpr{
+				X:   ast.NewIdent(g.resolveImportName("mock", "github.com/Versent/go-mock")),
+				Sel: ast.NewIdent("CallCount"),
+			},
+		})
+	}
+	funcDecl = &ast.FuncDecl{
+		Name: ast.NewIdent(funcName + methodName),
+		Type: &ast.FuncType{
+			Results: &ast.FieldList{
+				List: []*ast.Field{{
+					Type: &ast.FuncType{
+						Params: &ast.FieldList{
+							List: []*ast.Field{{
+								Type: &ast.StarExpr{
+									X: ast.NewIdent(structName),
+								},
+							}},
+						},
+					},
+				}},
+			},
+			Params: &ast.FieldList{
+				List: []*ast.Field{{
+					Names: []*ast.Ident{{Name: "delegate"}},
+					Type:  delegateType,
+				}},
+			},
+		},
+		Body: &ast.BlockStmt{List: []ast.Stmt{
+			&ast.ReturnStmt{
+				Results: []ast.Expr{&ast.CallExpr{
+					Fun: &ast.IndexListExpr{
+						X: &ast.SelectorExpr{
+							X:   ast.NewIdent(g.resolveImportName("mock", "github.com/Versent/go-mock")),
+							Sel: ast.NewIdent(funcName),
+						},
+						Indices: []ast.Expr{ast.NewIdent(structName)},
+					},
+					Args: []ast.Expr{
+						&ast.BasicLit{Kind: token.STRING, Value: fmt.Sprintf("%q", methodName)},
+						ast.NewIdent("delegate"),
+					},
+				}},
+			},
+		}},
+	}
+	forTuple("v", sig.Params(), func(_ int, name string, t *types.Var) {
+		delegateType.Params.List = append(delegateType.Params.List, &ast.Field{
+			Names: []*ast.Ident{{Name: name}},
+			Type:  ast.NewIdent(t.Type().String()),
+		})
+	})
+	forTuple("", sig.Results(), func(_ int, name string, t *types.Var) {
+		field := &ast.Field{
+			Type: ast.NewIdent(t.Type().String()),
+		}
+		if name != "" {
+			field.Names = []*ast.Ident{{Name: name}}
+		}
+		if delegateType.Results == nil {
+			delegateType.Results = &ast.FieldList{}
+		}
+		delegateType.Results.List = append(delegateType.Results.List, field)
+	})
+	return
 }
 
 func forTuple(prefix string, tuple *types.Tuple, f func(int, string, *types.Var)) {
