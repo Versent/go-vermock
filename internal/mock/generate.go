@@ -15,6 +15,8 @@ import (
 	"strconv"
 	"strings"
 
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	"golang.org/x/tools/go/packages"
 )
 
@@ -186,6 +188,7 @@ func Generate(ctx context.Context, patterns []string, opts GenerateOptions) ([]G
 	if len(errs) > 0 {
 		return nil, errs
 	}
+
 	generated := make([]GenerateResult, len(pkgs))
 	for i, pkg := range pkgs {
 		generated[i].PkgPath = pkg.PkgPath
@@ -194,18 +197,22 @@ func Generate(ctx context.Context, patterns []string, opts GenerateOptions) ([]G
 			generated[i].Errs = append(generated[i].Errs, err)
 			continue
 		}
+
 		outputFile := opts.PrefixOutputFile + "mock_gen"
 		if strings.HasSuffix(pkg.Name, "_test") {
 			outputFile += "_test"
 		}
 		outputFile += ".go"
 		generated[i].OutputPath = filepath.Join(outDir, outputFile)
+
 		g := newGen(pkg)
+		findFunctions(g, pkg)
 		errs := generateMocks(g, pkg)
 		if len(errs) > 0 {
 			generated[i].Errs = errs
 			continue
 		}
+
 		goSrc := g.frame(opts.Tags)
 		if len(opts.Header) > 0 {
 			goSrc = append(opts.Header, goSrc...)
@@ -251,13 +258,80 @@ func isMockStub(syntax *ast.File) bool {
 	return false
 }
 
+func findFunctions(g *gen, pkg *packages.Package) {
+	pkgName, _ := g.resolvePackageName("github.com/Versent/go-mock")
+	for _, syntax := range pkg.Syntax {
+		for _, decl := range syntax.Decls {
+			funcDecl, ok := g.addFunc(decl)
+			if !ok {
+				continue
+			}
+			if pkgName == "" {
+				// mock is not imported,
+				// so there cannot not be any custom functions
+				continue
+			}
+			if funcDecl.Recv != nil || funcDecl.Body == nil {
+				continue
+			}
+			// search for calls to mock.Expect or mock.ExpectMany
+			var funcName, structName, methodName string
+			ast.Inspect(funcDecl.Body, func(node ast.Node) (next bool) {
+				next = true
+				switch stmt := node.(type) {
+				case *ast.CallExpr:
+					var (
+						ok    bool
+						index *ast.IndexExpr
+						sel   *ast.SelectorExpr
+						ident *ast.Ident
+						lit   *ast.BasicLit
+					)
+					if index, ok = stmt.Fun.(*ast.IndexExpr); !ok {
+						return
+					}
+					if sel, ok = index.X.(*ast.SelectorExpr); !ok {
+						return
+					}
+					if sel.Sel.Name != "Expect" && sel.Sel.Name != "ExpectMany" {
+						return
+					}
+					if ident, ok := sel.X.(*ast.Ident); !ok || ident.Name != pkgName {
+						return
+					}
+					funcName = sel.Sel.Name
+					if ident, ok = index.Index.(*ast.Ident); !ok {
+						return
+					}
+					structName = ident.Name
+					if len(stmt.Args) == 0 {
+						return
+					}
+					if lit, ok = stmt.Args[0].(*ast.BasicLit); !ok || lit.Kind != token.STRING {
+						return
+					}
+					if methodName != "" {
+						methodName = ""
+						return false
+					}
+					methodName = lit.Value
+				}
+				return
+			})
+			if methodName == "" {
+				continue
+			}
+			specName := fmt.Sprintf("%s[%s](%s)", funcName, structName, methodName)
+			g.funcs[specName] = struct{}{}
+		}
+	}
+}
+
 func generateMocks(g *gen, pkg *packages.Package) (errs []error) {
 	for _, syntax := range pkg.Syntax {
 		if !isMockStub(syntax) {
 			continue
 		}
-		// filename := pkg.Fset.File(syntax.Pos()).Name()
-		// ast.Print(pkg.Fset, syntax)
 
 		// Iterate over all declarations in the file
 		for _, decl := range syntax.Decls {
@@ -377,18 +451,13 @@ func generateMockMethods(g *gen, iface *types.Interface, structName string) erro
 		methodName := method.Name()
 		sig := method.Type().(*types.Signature)
 
-		methDecl := makeMockMethod(g, structName, methodName, sig)
-		expDecl := makeExpectFunc(g, "Expect", structName, methodName, sig)
-		manyDecl := makeExpectFunc(g, "ExpectMany", structName, methodName, sig)
-
-		// Generate the source code for the function
-		if err := g.addDecl(expDecl.Name, expDecl); err != nil {
+		if err := addExpectFunc(g, "Expect", structName, methodName, sig); err != nil {
 			return err
 		}
-		if err := g.addDecl(manyDecl.Name, manyDecl); err != nil {
+		if err := addExpectFunc(g, "ExpectMany", structName, methodName, sig); err != nil {
 			return err
 		}
-		if err := g.addDecl(methDecl.Name, methDecl); err != nil {
+		if err := addMockMethod(g, structName, methodName, sig); err != nil {
 			return err
 		}
 	}
@@ -396,9 +465,9 @@ func generateMockMethods(g *gen, iface *types.Interface, structName string) erro
 	return nil
 }
 
-func makeMockMethod(g *gen, structName, methodName string, sig *types.Signature) (methDecl *ast.FuncDecl) {
+func addMockMethod(g *gen, structName, methodName string, sig *types.Signature) (err error) {
 	// Start building the function declaration
-	methDecl = &ast.FuncDecl{
+	methDecl := &ast.FuncDecl{
 		Recv: &ast.FieldList{
 			List: []*ast.Field{
 				{
@@ -411,6 +480,11 @@ func makeMockMethod(g *gen, structName, methodName string, sig *types.Signature)
 		},
 		Name: ast.NewIdent(methodName),
 		Type: &ast.FuncType{},
+	}
+
+	if _, ok := g.funcs[g.keyForFunc(methDecl)]; ok {
+		// Method already exists
+		return
 	}
 
 	methDecl.Type.Params = fieldList("v", sig.Variadic(), sig.Params())
@@ -449,10 +523,33 @@ func makeMockMethod(g *gen, structName, methodName string, sig *types.Signature)
 		})
 	}
 
-	return
+	// Generate the source code for the function
+	return g.addDecl(methDecl.Name, methDecl)
 }
 
-func makeExpectFunc(g *gen, funcName, structName, methodName string, sig *types.Signature) (funcDecl *ast.FuncDecl) {
+func addExpectFunc(g *gen, funcName, structName, methodName string, sig *types.Signature) error {
+	specName := fmt.Sprintf("%s[%s](%q)", funcName, structName, methodName)
+	if _, ok := g.funcs[specName]; ok {
+		// Custom implementation already exists
+		return nil
+	}
+
+	// Disambiguate the function name
+	name := ast.NewIdent(funcName + methodName)
+	if _, ok := g.funcs[name.Name]; ok {
+		if token.IsExported(structName) {
+			name = ast.NewIdent(funcName + structName + methodName)
+		} else {
+			name = ast.NewIdent(funcName + cases.Title(language.AmericanEnglish, cases.NoLower).String(structName) + methodName)
+		}
+	}
+	if _, ok := g.funcs[name.Name]; ok {
+		name = ast.NewIdent(name.Name + "T")
+	}
+	if _, ok := g.funcs[name.Name]; ok {
+		return fmt.Errorf("unable to disambiguate function name %q", name.Name)
+	}
+
 	delegateType := &ast.FuncType{
 		Params: &ast.FieldList{
 			List: []*ast.Field{{
@@ -473,8 +570,8 @@ func makeExpectFunc(g *gen, funcName, structName, methodName string, sig *types.
 			},
 		})
 	}
-	funcDecl = &ast.FuncDecl{
-		Name: ast.NewIdent(funcName + methodName),
+	funcDecl := &ast.FuncDecl{
+		Name: name,
 		Type: &ast.FuncType{
 			Results: &ast.FieldList{
 				List: []*ast.Field{{
@@ -532,7 +629,11 @@ func makeExpectFunc(g *gen, funcName, structName, methodName string, sig *types.
 		}
 		delegateType.Results.List = append(delegateType.Results.List, field)
 	})
-	return
+
+	g.funcs[specName] = struct{}{}
+
+	// Generate the source code for the function
+	return g.addDecl(funcDecl.Name, funcDecl)
 }
 
 func forTuple(prefix string, tuple *types.Tuple, f func(int, string, *types.Var)) {
@@ -590,6 +691,7 @@ type gen struct {
 	imports     map[string]importInfo
 	anonImports map[string]bool
 	values      map[ast.Expr]string
+	funcs       map[string]struct{}
 }
 
 func newGen(pkg *packages.Package) *gen {
@@ -598,12 +700,12 @@ func newGen(pkg *packages.Package) *gen {
 		anonImports: make(map[string]bool),
 		imports:     make(map[string]importInfo),
 		values:      make(map[ast.Expr]string),
+		funcs:       make(map[string]struct{}),
 	}
 }
 
 func (g *gen) addDecl(name fmt.Stringer, decl ast.Decl) error {
-	genDecl, ok := decl.(*ast.GenDecl)
-	if ok && genDecl.Tok == token.IMPORT {
+	if genDecl, ok := decl.(*ast.GenDecl); ok && genDecl.Tok == token.IMPORT {
 		for _, spec := range genDecl.Specs {
 			importSpec := spec.(*ast.ImportSpec)
 			var name string
@@ -631,6 +733,7 @@ func (g *gen) addDecl(name fmt.Stringer, decl ast.Decl) error {
 			}
 		}
 	}
+	g.addFunc(decl)
 	var buf bytes.Buffer
 	if err := format.Node(&buf, g.pkg.Fset, decl); err != nil {
 		if name == nil {
@@ -641,6 +744,32 @@ func (g *gen) addDecl(name fmt.Stringer, decl ast.Decl) error {
 	g.buf.Write(buf.Bytes())
 	g.buf.WriteString("\n\n") // Add some spacing between decls
 	return nil
+}
+
+func (g *gen) keyForFunc(funcDecl *ast.FuncDecl) (key string) {
+	if funcDecl.Recv == nil {
+		return funcDecl.Name.String()
+	} else if len(funcDecl.Recv.List) == 1 {
+		recv := bytes.Buffer{}
+		err := format.Node(&recv, g.pkg.Fset, funcDecl.Recv.List[0].Type)
+		if err != nil {
+			return
+		}
+		return recv.String() + "." + funcDecl.Name.String()
+	}
+	return
+}
+
+func (g *gen) addFunc(decl ast.Decl) (funcDecl *ast.FuncDecl, ok bool) {
+	if funcDecl, ok = decl.(*ast.FuncDecl); ok {
+		key := g.keyForFunc(funcDecl)
+		if key == "" {
+			ok = false
+			return
+		}
+		g.funcs[key] = struct{}{}
+	}
+	return
 }
 
 func (g *gen) resolvePackageName(path string) (string, bool) {
