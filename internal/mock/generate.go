@@ -92,7 +92,12 @@ func Generate(ctx context.Context, patterns []string, opts GenerateOptions) ([]G
 			generated[i].Errs = append(generated[i].Errs, err)
 			continue
 		}
-		generated[i].OutputPath = filepath.Join(outDir, opts.PrefixOutputFile+"mock_gen.go")
+		outputFile := opts.PrefixOutputFile + "mock_gen"
+		if strings.HasSuffix(pkg.Name, "_test") {
+			outputFile += "_test"
+		}
+		outputFile += ".go"
+		generated[i].OutputPath = filepath.Join(outDir, outputFile)
 		g := newGen(pkg)
 		errs := generateMocks(g, pkg)
 		if len(errs) > 0 {
