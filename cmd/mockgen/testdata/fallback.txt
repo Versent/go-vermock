@@ -1,0 +1,29 @@
+exec go mod edit -replace github.com/Versent/go-mock=$MUT
+exec go mod tidy
+exec go run github.com/Versent/go-mock/cmd/mockgen
+
+cmp    stdout stdout.golden
+cmpenv stderr stderr.golden
+
+-- stdout.golden --
+-- stderr.golden --
+mockgen: test: wrote $WORK/mock_gen.go
+-- go.mod --
+module test
+
+go 1.20
+
+require github.com/Versent/go-mock v0.0.0-00010101000000-000000000000
+-- tools.go --
+package main
+
+import (
+	_ "github.com/Versent/go-mock/cmd/mockgen"
+)
+-- mock.go --
+//go:build mockstub
+
+package main
+
+type mock struct {
+}

@@ -45,9 +45,16 @@ func makeGenerateOptions(headerFile string) (opts mock.GenerateOptions, err erro
 }
 
 type genCmd struct {
+	log            *log.Logger
 	headerFile     string
 	prefixFileName string
 	tags           string
+}
+
+func NewGenCmd(l *log.Logger, f *flag.FlagSet) *genCmd {
+	cmd := &genCmd{log: l}
+	cmd.SetFlags(f)
+	return cmd
 }
 
 func (*genCmd) Name() string { return "gen" }
@@ -55,22 +62,26 @@ func (*genCmd) Synopsis() string {
 	return "generate the mock_gen.go file for each package"
 }
 func (*genCmd) Usage() string {
-	return `gen [packages]
+	return `gen [-header file] [-tags buildtags] [package ...]
 
   Given one or more packages, gen creates mock_gen.go files for each.
 
-  If no packages are listed, it defaults to ".".
+  If no package is listed, it defaults to ".".
+
 `
 }
 func (cmd *genCmd) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&cmd.headerFile, "header_file", "", "path to file to insert as a header in mock_gen.go")
+	if cmd.log == nil {
+		cmd.log = log.Default()
+	}
+	f.StringVar(&cmd.headerFile, "header", "", "path to file to insert as a header in mock_gen.go")
 	f.StringVar(&cmd.tags, "tags", "", "append build tags to the default mockstub")
 }
 
 func (cmd *genCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
 	opts, err := makeGenerateOptions(cmd.headerFile)
 	if err != nil {
-		log.Println(err)
+		cmd.log.Println(err)
 		return subcommands.ExitFailure
 	}
 
@@ -79,8 +90,8 @@ func (cmd *genCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...interfa
 
 	outs, errs := mock.Generate(ctx, packages(f), opts)
 	if len(errs) > 0 {
-		logErrors(errs...)
-		log.Println("generate failed")
+		logErrors(cmd.log, errs...)
+		cmd.log.Println("generate failed")
 		return subcommands.ExitFailure
 	}
 	if len(outs) == 0 {
@@ -89,8 +100,8 @@ func (cmd *genCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...interfa
 	success := true
 	for _, out := range outs {
 		if len(out.Errs) > 0 {
-			logErrors(out.Errs...)
-			log.Printf("%s: generate failed\n", out.PkgPath)
+			logErrors(cmd.log, out.Errs...)
+			cmd.log.Printf("%s: generate failed\n", out.PkgPath)
 			success = false
 		}
 		if len(out.Content) == 0 {
@@ -98,14 +109,14 @@ func (cmd *genCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...interfa
 			continue
 		}
 		if err := out.Commit(); err == nil {
-			log.Printf("%s: wrote %s\n", out.PkgPath, out.OutputPath)
+			cmd.log.Printf("%s: wrote %s\n", out.PkgPath, out.OutputPath)
 		} else {
-			log.Printf("%s: failed to write %s: %v\n", out.PkgPath, out.OutputPath, err)
+			cmd.log.Printf("%s: failed to write %s: %v\n", out.PkgPath, out.OutputPath, err)
 			success = false
 		}
 	}
 	if !success {
-		log.Println("at least one generate failure")
+		cmd.log.Println("at least one generate failure")
 		return subcommands.ExitFailure
 	}
 	return subcommands.ExitSuccess
