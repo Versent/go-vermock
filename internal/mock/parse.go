@@ -23,6 +23,7 @@ func load(ctx context.Context, wd string, env []string, buildflags []string, pat
 		Dir:        wd,
 		Env:        env,
 		BuildFlags: buildflags,
+		Tests:      true,
 	}
 	escaped := make([]string, len(patterns))
 	for i := range patterns {
