@@ -1,4 +1,4 @@
-package main
+package mockgen
 
 import (
 	"context"
@@ -44,24 +44,24 @@ func makeGenerateOptions(headerFile string) (opts mock.GenerateOptions, err erro
 	return
 }
 
-type genCmd struct {
+type GenCmd struct {
 	log            *log.Logger
 	headerFile     string
 	prefixFileName string
 	tags           string
 }
 
-func NewGenCmd(l *log.Logger, f *flag.FlagSet) *genCmd {
-	cmd := &genCmd{log: l}
+func NewGenCmd(l *log.Logger, f *flag.FlagSet) *GenCmd {
+	cmd := &GenCmd{log: l}
 	cmd.SetFlags(f)
 	return cmd
 }
 
-func (*genCmd) Name() string { return "gen" }
-func (*genCmd) Synopsis() string {
+func (*GenCmd) Name() string { return "gen" }
+func (*GenCmd) Synopsis() string {
 	return "generate the mock_gen.go file for each package"
 }
-func (*genCmd) Usage() string {
+func (*GenCmd) Usage() string {
 	return `gen [-header file] [-tags buildtags] [package ...]
 
   Given one or more packages, gen creates mock_gen.go files for each.
@@ -70,7 +70,7 @@ func (*genCmd) Usage() string {
 
 `
 }
-func (cmd *genCmd) SetFlags(f *flag.FlagSet) {
+func (cmd *GenCmd) SetFlags(f *flag.FlagSet) {
 	if cmd.log == nil {
 		cmd.log = log.Default()
 	}
@@ -78,7 +78,7 @@ func (cmd *genCmd) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&cmd.tags, "tags", "", "append build tags to the default mockstub")
 }
 
-func (cmd *genCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
+func (cmd *GenCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
 	opts, err := makeGenerateOptions(cmd.headerFile)
 	if err != nil {
 		cmd.log.Println(err)
