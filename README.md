@@ -77,8 +77,12 @@ import mock "github.com/Versent/go-mock"
   ```go
   func TestObject(t *testing.T) {
   	m := mock.New(t,
-    	mock.ExpectGet(func(t testing.TB, key string) (any, bool) {...}),
-    	mock.ExpectPut(func(t testing.TB, key string, value any) error {...}),
+    	mock.ExpectGet(func(t testing.TB, key string) (any, bool) {
+		// Define your mock's behaviour
+	}),
+    	mock.ExpectPut(func(t testing.TB, key string, value any) error {
+		// Define your mock's behaviour
+	}),
     )
 
   	// Use the mock instance in your test
