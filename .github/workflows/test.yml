@@ -1,0 +1,33 @@
+name: Test
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main    
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+
+      - name: Format
+        run: gofmt -s -w . && git diff --exit-code
+
+      - name: Tidy
+        run: go mod tidy && git diff --exit-code
+
+      - name: Test
+        run: go test -v ./...
+
+      - name: Coverage report
+        uses: ncruces/go-coverage-report@v0
+        with:
+          report: true
+          chart: true
+          amend: true
+        if: |
+          github.event_name == 'push'
+        continue-on-error: true
