@@ -3,7 +3,6 @@ package mockgen
 import (
 	"context"
 	"flag"
-	"fmt"
 	"log"
 	"os"
 
@@ -20,28 +19,6 @@ func packages(f *flag.FlagSet) []string {
 		pkgs = []string{"."}
 	}
 	return pkgs
-}
-
-// makeGenerateOptions returns an initialized mock.GenerateOptions, possibly
-// with the Header option set.
-func makeGenerateOptions(headerFile string) (opts mock.GenerateOptions, err error) {
-	opts.Dir, err = os.Getwd()
-	if err != nil {
-		err = fmt.Errorf("failed to get working directory: %v", err)
-		return
-	}
-
-	opts.Env = os.Environ()
-
-	if headerFile != "" {
-		opts.Header, err = os.ReadFile(headerFile)
-	}
-	if err != nil {
-		err = fmt.Errorf("failed to read header file %q: %v", headerFile, err)
-		return
-	}
-
-	return
 }
 
 type GenCmd struct {
@@ -78,8 +55,14 @@ func (cmd *GenCmd) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&cmd.tags, "tags", "", "append build tags to the default mockstub")
 }
 
-func (cmd *GenCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
-	opts, err := makeGenerateOptions(cmd.headerFile)
+func (cmd *GenCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) subcommands.ExitStatus {
+	var opts mock.GenerateOptions
+	err := mock.WithArgs(
+		mock.WithEnv(os.Environ()),
+		mock.WithHeaderFile(cmd.headerFile),
+		mock.WithArgs(args...),
+		mock.WithWDFallback(),
+	)(&opts)
 	if err != nil {
 		cmd.log.Println(err)
 		return subcommands.ExitFailure

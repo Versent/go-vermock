@@ -15,6 +15,7 @@ import (
 	"rsc.io/script/scripttest"
 
 	"github.com/Versent/go-mock/internal/cmd/mockgen"
+	"github.com/Versent/go-mock/internal/mock"
 )
 
 func TestGenerate(t *testing.T) {
@@ -47,8 +48,7 @@ func (m *genCmd) Run(s *script.State, args ...string) (script.WaitFunc, error) {
 	}
 	l := log.New(stderr, "mockgen: ", 0)
 	genCmd := mockgen.NewGenCmd(l, f)
-	os.Chdir(s.Getwd()) // $WORK
-	status := genCmd.Execute(s.Context(), f)
+	status := genCmd.Execute(s.Context(), f, mock.WithDir(s.Getwd()))
 	return func(s *script.State) (_, _ string, err error) {
 		if status != 0 {
 			err = fmt.Errorf("exit status %d", status)
