@@ -5,5 +5,5 @@ golang.org/x/mod v0.14.0/go.mod h1:hTbmBsO62+eylJbnUtE2MGJUyE7QWk4xUqPFrRgJ+7c=
 golang.org/x/sync v0.5.0 h1:60k92dhOjHxJkrqnwsfl8KuaHbn/5dl0lUPUklKo3qE=
 golang.org/x/tools v0.16.0 h1:GO788SKMRunPIBCXiQyo2AaexLstOrVhuAL5YwsckQM=
 golang.org/x/tools v0.16.0/go.mod h1:kYVVN6I1mBNoB1OX+noeBjbRk4IUEPa7JJ+TJMEooJ0=
-rsc.io/script v0.0.1 h1:t8dtrXAUACmR2OV0OXuQ9otT/5x2F/QqsnssYhtcziM=
-rsc.io/script v0.0.1/go.mod h1:CQ30lgzFbVimcUVFHfewSNOAv0ag6UQ0b0nIWeN22Fc=
+rsc.io/script v0.0.2-0.20231205190631-334f6c18cff3 h1:2vM6uMBq2/Dou/Wzu2p+yUFkuI3lgMbX0UYfVnzh0ck=
+rsc.io/script v0.0.2-0.20231205190631-334f6c18cff3/go.mod h1:cKBjCtFBBeZ0cbYFRXkRoxP+xGqhArPa9t3VWhtXfzU=

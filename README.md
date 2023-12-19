@@ -1,5 +1,9 @@
 # `mock` module
 
+[![Go Reference](https://pkg.go.dev/badge/image)](https://pkg.go.dev/github.com/Versent/go-mock)
+[![Go Report](https://goreportcard.com/badge/github.com/Versent/go-mock)](https://goreportcard.com/report/github.com/Versent/go-mock)
+[![Go Coverage](https://github.com/Versent/go-mock/wiki/coverage.svg)](https://github.com/Versent/go-mock/wiki/Test-coverage-report)
+
 Tired of mocking libraries with cumbersome APIs?  Frustrated with numerous and complicated options?
 Looking for a mock that works well with a composite of small interfaces or loves high ordered
 functions?
