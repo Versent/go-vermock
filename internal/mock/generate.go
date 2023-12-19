@@ -46,7 +46,7 @@ type GenerateOptions struct {
 	Header []byte
 
 	// PrefixOutputFile is the prefix of the file name to write the generated
-	// output to. The suffix will be "mock_gen.go".
+	// output to. The suffix will be "mock_gen.go" or "mock_gen_test.go".
 	PrefixOutputFile string
 
 	// Tags is a list of additional build tags to add to the generated file.
@@ -62,6 +62,108 @@ type GenerateOptions struct {
 	// As in os/exec's Cmd, only the last value in the slice for
 	// each environment key is used.
 	Env []string
+}
+
+// GenerateOption modifies a GenerateOptions value and be used to configure
+// Generate.
+type GenerateOption func(*GenerateOptions) error
+
+// WithDir sets the directory to run the build system's query tool.
+func WithDir(dir string) GenerateOption {
+	return func(opts *GenerateOptions) error {
+		opts.Dir = dir
+		return nil
+	}
+}
+
+// WithWDFallback sets the directory to run the build system's query tool to
+// the current working directory if Dir is empty.
+func WithWDFallback() GenerateOption {
+	return func(opts *GenerateOptions) error {
+		if opts.Dir != "" {
+			return nil
+		}
+		wd, err := os.Getwd()
+		if err != nil {
+			err = fmt.Errorf("failed to get working directory: %w", err)
+			return err
+		}
+		opts.Dir = wd
+		return nil
+	}
+}
+
+// WithPrefixFileName sets the prefix of the file name to write the generated
+// output to. The suffix will be "mock_gen.go" or "mock_gen_test.go".
+func WithPrefixFileName(prefix string) GenerateOption {
+	return func(opts *GenerateOptions) error {
+		opts.PrefixOutputFile = prefix
+		return nil
+	}
+}
+
+// WithTags sets the build tags to use when generating the mock files.
+func WithTags(tags string) GenerateOption {
+	return func(opts *GenerateOptions) error {
+		opts.Tags = tags
+		return nil
+	}
+}
+
+// WithHeader sets the header to insert at the start of each generated file.
+func WithHeader(header []byte) GenerateOption {
+	return func(opts *GenerateOptions) error {
+		opts.Header = header
+		return nil
+	}
+}
+
+// WithHeaderFile sets the header to insert at the start of each generated file
+// to the contents of the given file.
+func WithHeaderFile(headerFile string) GenerateOption {
+	return func(opts *GenerateOptions) error {
+		if headerFile == "" {
+			return nil
+		}
+		header, err := os.ReadFile(headerFile)
+		if err != nil {
+			err = fmt.Errorf("failed to read header file %q: %w", headerFile, err)
+			return err
+		}
+		opts.Header = header
+		return nil
+	}
+}
+
+// WithEnv sets the environment to use when invoking the build system's query
+// tool.
+func WithEnv(env []string) GenerateOption {
+	return func(opts *GenerateOptions) error {
+		opts.Env = env
+		return nil
+	}
+}
+
+// WithArgs applies each GenerateOption in the given slice.  If any of the
+// GenerateOptions return an error, WithArgs will return the error immediately.
+// The args use the any type to be compatible with the subcommands package.
+func WithArgs(args ...any) GenerateOption {
+	return func(opts *GenerateOptions) (err error) {
+		for _, arg := range args {
+			switch arg := arg.(type) {
+			case GenerateOption:
+				err = arg(opts)
+				if err != nil {
+					err = fmt.Errorf("failed to apply generate option: %w", err)
+					return
+				}
+			default:
+				err = fmt.Errorf("unexpected argument type %T", arg)
+				return
+			}
+		}
+		return nil
+	}
 }
 
 // Generate generates a code file for each package matching the given patterns.
