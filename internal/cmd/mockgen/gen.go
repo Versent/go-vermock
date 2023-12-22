@@ -62,14 +62,13 @@ func (cmd *GenCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) su
 		mock.WithHeaderFile(cmd.headerFile),
 		mock.WithArgs(args...),
 		mock.WithWDFallback(),
+		mock.WithPrefixFileName(cmd.prefixFileName),
+		mock.WithTags(cmd.tags),
 	)(&opts)
 	if err != nil {
 		cmd.log.Println(err)
 		return subcommands.ExitFailure
 	}
-
-	opts.PrefixOutputFile = cmd.prefixFileName
-	opts.Tags = cmd.tags
 
 	outs, errs := mock.Generate(ctx, packages(f), opts)
 	if len(errs) > 0 {

@@ -1,6 +1,6 @@
 exec go mod edit -replace github.com/Versent/go-mock=$MUT
 exec go mod tidy
-! exec go run github.com/Versent/go-mock/cmd/mockgen gen -undefined
+! exec mockgen gen -undefined
 
 cmp stdout stdout.golden
 cmp stderr stderr.golden
@@ -18,7 +18,6 @@ gen [-header file] [-tags buildtags] [package ...]
     	path to file to insert as a header in mock_gen.go
   -tags string
     	append build tags to the default mockstub
-exit status 2
 -- go.mod --
 module test
 
