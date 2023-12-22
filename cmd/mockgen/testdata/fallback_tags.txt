@@ -1,6 +1,6 @@
 exec go mod edit -replace github.com/Versent/go-mock=$MUT
 exec go mod tidy
-exec go run github.com/Versent/go-mock/cmd/mockgen -tags extra
+exec mockgen -tags extra
 
 cmp    stdout stdout.golden
 cmpenv stderr stderr.golden

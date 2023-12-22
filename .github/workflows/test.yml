@@ -20,11 +20,16 @@ jobs:
         run: go mod tidy && git diff --exit-code
 
       - name: Test
-        run: go test -v ./...
+        run: |
+          mkdir -p "${{ runner.temp }}/covdata"
+          go test -v -cover ./...  -test.gocoverdir="${{ runner.temp }}/covdata"
+          go tool covdata percent -i="${{ runner.temp }}/covdata"
+          go tool covdata textfmt -o "${{ runner.temp }}/coverage.out" -i="${{ runner.temp }}/covdata"
 
       - name: Coverage report
         uses: ncruces/go-coverage-report@v0
         with:
+          coverage-file: "${{ runner.temp }}/coverage.out"
           report: true
           chart: true
           amend: true
