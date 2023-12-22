@@ -93,18 +93,18 @@ go generate
   ```go
   func TestObject(t *testing.T) {
   	m := mock.New(t,
-    	mock.ExpectGet(func(t testing.TB, key string) (any, bool) {
-		// Define your mock's behaviour
-	}),
-    	mock.ExpectPut(func(t testing.TB, key string, value any) error {
-		// Define your mock's behaviour
-	}),
-    )
+  	mock.ExpectGet(func(t testing.TB, key string) (any, bool) {
+  		// Define your mock's behaviour
+  	}),
+  	mock.ExpectPut(func(t testing.TB, key string, value any) error {
+  		// Define your mock's behaviour
+  	}),
+  )
 
   	// Use the mock instance in your test
 
   	// Assert that all expected methods were called
-	mock.AssertExpectedCalls(t, m)
+  	mock.AssertExpectedCalls(t, m)
   }
   ```
 
