@@ -1,24 +1,24 @@
-package mock_test
+package vermock_test
 
 import (
 	"testing"
 
-	mock "github.com/Versent/go-mock"
+	vermock "github.com/Versent/go-vermock"
 )
 
 func TestNew_identity(t *testing.T) {
 	t.Run("mockCache", func(t *testing.T) {
-		m1 := mock.New[mockCache](t)
-		m2 := mock.New[mockCache](t)
+		m1 := vermock.New[mockCache](t)
+		m2 := vermock.New[mockCache](t)
 		if m1 == m2 {
 			t.Error("expected different mocks")
 		}
 	})
 
-	t.Run("mock.Delegates", func(t *testing.T) {
-		type T mock.Delegates
-		m1 := mock.New[T](t)
-		m2 := mock.New[T](t)
+	t.Run("vermock.Delegates", func(t *testing.T) {
+		type T vermock.Delegates
+		m1 := vermock.New[T](t)
+		m2 := vermock.New[T](t)
 		if m1 == m2 {
 			t.Error("expected different mocks")
 		}
@@ -28,34 +28,34 @@ func TestNew_identity(t *testing.T) {
 		defer func() {
 			if r := recover(); r == nil {
 				t.Error("expected panic")
-			} else if r != "mock.New: zero-sized type used to construct more than one mock: *mock_test.T" {
+			} else if r != "vermock.New: zero-sized type used to construct more than one mock: *vermock_test.T" {
 				t.Error("unexpected panic:", r)
 			}
 		}()
 		type T struct{}
-		_ = mock.New[T](t)
-		_ = mock.New[T](t)
+		_ = vermock.New[T](t)
+		_ = vermock.New[T](t)
 	})
 }
 
 func TestNew_Expect(t *testing.T) {
 	called := false
-	var cache Cache = mock.New(&testing.T{},
-		mock.Expect[mockCache]("Put", func(_ testing.TB, key string, value any) error {
+	var cache Cache = vermock.New(&testing.T{},
+		vermock.Expect[mockCache]("Put", func(_ testing.TB, key string, value any) error {
 			if key != "foo" && value != "bar" {
 				t.Error("unexpected arguments")
 			}
 			called = true
 			return nil
 		}),
-		mock.Expect[mockCache]("Get", func(_ *testing.T, key string) (any, bool) {
+		vermock.Expect[mockCache]("Get", func(_ *testing.T, key string) (any, bool) {
 			if key != "foo" {
 				t.Error("unexpected arguments")
 			}
 			called = true
 			return "bar", true
 		}),
-		mock.Expect[mockCache]("Delete", func(key string) {
+		vermock.Expect[mockCache]("Delete", func(key string) {
 			if key != "foo" {
 				t.Error("unexpected arguments")
 			}

@@ -1,17 +1,17 @@
-exec go mod edit -replace github.com/Versent/go-mock=$MUT
+exec go mod edit -replace github.com/Versent/go-vermock=$MUT
 exec go mod tidy
-exec mockgen help
+exec vermockgen help
 
 cmp stdout stdout.golden
 cmp stderr stderr.golden
 
 -- stdout.golden --
-Usage: mockgen <flags> <subcommand> <subcommand args>
+Usage: vermockgen <flags> <subcommand> <subcommand args>
 
 Subcommands:
 	commands         list all command names
 	flags            describe all known top-level flags
-	gen              generate the mock_gen.go file for each package
+	gen              generate the vermock_gen.go file for each package
 	help             describe subcommands and their syntax
 
 -- stderr.golden --
@@ -20,10 +20,10 @@ module test
 
 go 1.20
 
-require github.com/Versent/go-mock v0.0.0-00010101000000-000000000000
+require github.com/Versent/go-vermock v0.0.0-00010101000000-000000000000
 -- tools.go --
 package main
 
 import (
-	_ "github.com/Versent/go-mock/cmd/mockgen"
+	_ "github.com/Versent/go-vermock/cmd/vermockgen"
 )

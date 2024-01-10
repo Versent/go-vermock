@@ -1,0 +1,29 @@
+exec go mod edit -replace github.com/Versent/go-vermock=$MUT
+exec go mod tidy
+exec vermockgen gen .
+
+cmp    stdout stdout.golden
+cmpenv stderr stderr.golden
+
+-- stdout.golden --
+-- stderr.golden --
+vermockgen: test: wrote $WORK/vermock_gen.go
+-- go.mod --
+module test
+
+go 1.20
+
+require github.com/Versent/go-vermock v0.0.0-00010101000000-000000000000
+-- tools.go --
+package main
+
+import (
+	_ "github.com/Versent/go-vermock/cmd/vermockgen"
+)
+-- mock.go --
+//go:build vermockstub
+
+package main
+
+type mock struct {
+}

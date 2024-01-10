@@ -1,4 +1,4 @@
-package mockgen
+package vermockgen
 
 import (
 	"context"
@@ -8,10 +8,10 @@ import (
 
 	"github.com/google/subcommands"
 
-	"github.com/Versent/go-mock/internal/mock"
+	"github.com/Versent/go-vermock/internal/mock"
 )
 
-// packages returns the slice of packages to run mockgen over based on f.
+// packages returns the slice of packages to run vermockgen over based on f.
 // It defaults to ".".
 func packages(f *flag.FlagSet) []string {
 	pkgs := f.Args()
@@ -36,12 +36,12 @@ func NewGenCmd(l *log.Logger, f *flag.FlagSet) *GenCmd {
 
 func (*GenCmd) Name() string { return "gen" }
 func (*GenCmd) Synopsis() string {
-	return "generate the mock_gen.go file for each package"
+	return "generate the vermock_gen.go file for each package"
 }
 func (*GenCmd) Usage() string {
 	return `gen [-header file] [-tags buildtags] [package ...]
 
-  Given one or more packages, gen creates mock_gen.go files for each.
+  Given one or more packages, gen creates vermock_gen.go files for each.
 
   If no package is listed, it defaults to ".".
 
@@ -51,8 +51,8 @@ func (cmd *GenCmd) SetFlags(f *flag.FlagSet) {
 	if cmd.log == nil {
 		cmd.log = log.Default()
 	}
-	f.StringVar(&cmd.headerFile, "header", "", "path to file to insert as a header in mock_gen.go")
-	f.StringVar(&cmd.tags, "tags", "", "append build tags to the default mockstub")
+	f.StringVar(&cmd.headerFile, "header", "", "path to file to insert as a header in vermock_gen.go")
+	f.StringVar(&cmd.tags, "tags", "", "append build tags to the default vermockstub")
 }
 
 func (cmd *GenCmd) Execute(ctx context.Context, f *flag.FlagSet, args ...any) subcommands.ExitStatus {

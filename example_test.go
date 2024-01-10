@@ -1,10 +1,10 @@
-package mock_test
+package vermock_test
 
 import (
 	"fmt"
 	"testing"
 
-	mock "github.com/Versent/go-mock"
+	vermock "github.com/Versent/go-vermock"
 )
 
 // Cache contains a variety of methods with different signatures.
@@ -21,25 +21,25 @@ type mockCache struct {
 	_ byte // prevent zero-sized type
 }
 
-// Put returns one value, so use mock.Call1.
+// Put returns one value, so use vermock.Call1.
 func (m *mockCache) Put(key string, value any) error {
-	return mock.Call1[error](m, "Put", key, value)
+	return vermock.Call1[error](m, "Put", key, value)
 }
 
-// Get returns two values, so use mock.Call2.
+// Get returns two values, so use vermock.Call2.
 func (m *mockCache) Get(key string) (any, bool) {
-	return mock.Call2[any, bool](m, "Get", key)
+	return vermock.Call2[any, bool](m, "Get", key)
 }
 
-// Delete returns no values, so use mock.Call0.
+// Delete returns no values, so use vermock.Call0.
 func (m *mockCache) Delete(key string) {
-	mock.Call0(m, "Delete", key)
+	vermock.Call0(m, "Delete", key)
 }
 
 // Load is variadic, the last argument must be passed as a slice to one of the
-// mock.CallN functions.
+// vermock.CallN functions.
 func (m *mockCache) Load(keys ...string) {
-	mock.Call0(m, "Load", keys)
+	vermock.Call0(m, "Load", keys)
 }
 
 // UnusedCache is useful to show that a test's intent is that none of the
@@ -49,10 +49,10 @@ var UnusedCache func(*mockCache) = nil
 func ExampleUnusedCache() {
 	t := &exampleT{} // or any testing.TB, your test does not create this
 	// 1. Create a mock object.
-	var cache Cache = mock.New(t, UnusedCache)
+	var cache Cache = vermock.New(t, UnusedCache)
 	// 2. Use the mock object in your code under test.
 	// 3. Assert that all expected methods were called.
-	mock.AssertExpectedCalls(t, cache)
+	vermock.AssertExpectedCalls(t, cache)
 	// mock will fail a test if a call is made to an unexpected method or if
 	// the expected methods are not called.
 	fmt.Println("less than expected:", t.Failed())
@@ -60,24 +60,24 @@ func ExampleUnusedCache() {
 	// less than expected: false
 }
 
-// ExpectDelete is a helper function that hides the stringiness of mock.
+// ExpectDelete is a helper function that hides the stringiness of vermock.
 func ExpectDelete(delegate func(t testing.TB, key string)) func(*mockCache) {
-	return mock.Expect[mockCache]("Delete", delegate)
+	return vermock.Expect[mockCache]("Delete", delegate)
 }
 
 func Example_pass() {
 	t := &exampleT{} // or any testing.TB, your test does not create this
 	// 1. Create a mock object with expected calls.
-	var cache Cache = mock.New(t,
+	var cache Cache = vermock.New(t,
 		// delegate function can receive testing.TB
-		mock.Expect[mockCache]("Get", func(t testing.TB, key string) (any, bool) {
+		vermock.Expect[mockCache]("Get", func(t testing.TB, key string) (any, bool) {
 			return "bar", true
 		}),
-		mock.Expect[mockCache]("Put", func(t testing.TB, key string, value any) error {
+		vermock.Expect[mockCache]("Put", func(t testing.TB, key string, value any) error {
 			return nil
 		}),
 		// or only the method arguments
-		mock.Expect[mockCache]("Delete", func(key string) {}),
+		vermock.Expect[mockCache]("Delete", func(key string) {}),
 		// you may prefer to define a helper function
 		ExpectDelete(func(t testing.TB, key string) {}),
 	)
@@ -87,7 +87,7 @@ func Example_pass() {
 	cache.Delete("foo")
 	cache.Delete("foo")
 	// 3. Assert that all expected methods were called.
-	mock.AssertExpectedCalls(t, cache)
+	vermock.AssertExpectedCalls(t, cache)
 	// mock will not fail the test
 	fmt.Println("less than expected:", t.Failed())
 	// Output:
@@ -101,24 +101,24 @@ func Example_pass() {
 func Example_unmetExpectation() {
 	t := &testing.T{} // or any testing.TB, your test does not create this
 	// 1. Create a mock object with expected calls.
-	var cache Cache = mock.New(t,
+	var cache Cache = vermock.New(t,
 		// delegate function can receive testing.TB
-		mock.Expect[mockCache]("Put", func(t testing.TB, key string, value any) error {
+		vermock.Expect[mockCache]("Put", func(t testing.TB, key string, value any) error {
 			fmt.Println("put", key, value)
 			return nil
 		}),
 		// or *testing.T
-		mock.Expect[mockCache]("Get", func(t *testing.T, key string) (any, bool) {
+		vermock.Expect[mockCache]("Get", func(t *testing.T, key string) (any, bool) {
 			fmt.Println("get", key)
 			return "bar", true
 		}),
 		// or only the method arguments
-		mock.Expect[mockCache]("Delete", func(key string) {
+		vermock.Expect[mockCache]("Delete", func(key string) {
 			fmt.Println("delete", key)
 		}),
 		// you may prefer to define a helper function
 		ExpectDelete(func(t testing.TB, key string) {
-			t.Log("this is not going to be called; causing t.Fail() to be called by mock.AssertExpectedCalls")
+			t.Log("this is not going to be called; causing t.Fail() to be called by vermock.AssertExpectedCalls")
 		}),
 	)
 	// 2. Use the mock object in your code under test.
@@ -126,7 +126,7 @@ func Example_unmetExpectation() {
 	cache.Get("foo")
 	cache.Delete("foo")
 	// 3. Assert that all expected methods were called.
-	mock.AssertExpectedCalls(t, cache)
+	vermock.AssertExpectedCalls(t, cache)
 	// mock will fail the test because the second call to Delete is not met.
 	fmt.Println("less than expected:", t.Failed())
 	// Output:
@@ -139,14 +139,14 @@ func Example_unmetExpectation() {
 func Example_unexpectedCall() {
 	t := &testing.T{} // or any testing.TB, your test does not create this
 	// 1. Create a mock object with expected calls.
-	var cache Cache = mock.New(t,
+	var cache Cache = vermock.New(t,
 		// delegate function can receive testing.TB
-		mock.Expect[mockCache]("Put", func(t testing.TB, key string, value any) error {
+		vermock.Expect[mockCache]("Put", func(t testing.TB, key string, value any) error {
 			fmt.Println("put", key, value)
 			return nil
 		}),
 		// or only the method arguments
-		mock.Expect[mockCache]("Delete", func(key string) {
+		vermock.Expect[mockCache]("Delete", func(key string) {
 			fmt.Println("delete", key)
 		}),
 	)
@@ -155,7 +155,7 @@ func Example_unexpectedCall() {
 	cache.Get("foo")
 	cache.Delete("foo")
 	// 3. Assert that all expected methods were called.
-	mock.AssertExpectedCalls(t, cache)
+	vermock.AssertExpectedCalls(t, cache)
 	// mock will fail the test because the call to Get is not expected.
 	fmt.Println("more than expected:", t.Failed())
 	// Output:
@@ -167,25 +167,25 @@ func Example_unexpectedCall() {
 func Example_allowRepeatedCalls() {
 	t := &testing.T{} // or any testing.TB, your test does not create this
 	// 1. Create a mock object with ExpectMany.
-	var cache Cache = mock.New(t,
+	var cache Cache = vermock.New(t,
 		// delegate function may receive a call counter and the method arguments
-		mock.ExpectMany[mockCache]("Load", func(n mock.CallCount, keys ...string) {
+		vermock.ExpectMany[mockCache]("Load", func(n vermock.CallCount, keys ...string) {
 			fmt.Println("load", n, keys)
 		}),
 		// and testing.TB
-		mock.ExpectMany[mockCache]("Load", func(t testing.TB, n mock.CallCount, keys ...string) {
+		vermock.ExpectMany[mockCache]("Load", func(t testing.TB, n vermock.CallCount, keys ...string) {
 			fmt.Println("load", n, keys)
 		}),
 		// or *testing.T
-		mock.ExpectMany[mockCache]("Load", func(t *testing.T, n mock.CallCount, keys ...string) {
+		vermock.ExpectMany[mockCache]("Load", func(t *testing.T, n vermock.CallCount, keys ...string) {
 			fmt.Println("load", n, keys)
 		}),
 		// or only testing.TB/*testing.T
-		mock.ExpectMany[mockCache]("Load", func(t testing.TB, keys ...string) {
+		vermock.ExpectMany[mockCache]("Load", func(t testing.TB, keys ...string) {
 			fmt.Println("load 3", keys)
 		}),
 		// or only the method arguments
-		mock.ExpectMany[mockCache]("Load", func(keys ...string) {
+		vermock.ExpectMany[mockCache]("Load", func(keys ...string) {
 			fmt.Println("load 4", keys)
 		}),
 	)
@@ -197,7 +197,7 @@ func Example_allowRepeatedCalls() {
 	cache.Load("baz")
 	cache.Load("foo", "bar", "baz")
 	// 3. Assert that all expected methods were called.
-	mock.AssertExpectedCalls(t, cache)
+	vermock.AssertExpectedCalls(t, cache)
 	// mock will not fail the test because ExpectMany allows repeated calls.
 	fmt.Println("more than expected:", t.Failed())
 	// Output:
@@ -213,13 +213,13 @@ func Example_allowRepeatedCalls() {
 func Example_orderedCalls() {
 	t := &testing.T{} // or any testing.TB, your test does not create this
 	// 1. Create a mock object with ExpectInOrder.
-	var cache Cache = mock.New(t,
-		mock.ExpectInOrder(
-			mock.Expect[mockCache]("Put", func(key string, value any) error {
+	var cache Cache = vermock.New(t,
+		vermock.ExpectInOrder(
+			vermock.Expect[mockCache]("Put", func(key string, value any) error {
 				fmt.Println("put", key, value)
 				return nil
 			}),
-			mock.Expect[mockCache]("Get", func(key string) (any, bool) {
+			vermock.Expect[mockCache]("Get", func(key string) (any, bool) {
 				fmt.Println("get", key)
 				return "bar", true
 			}),
@@ -229,7 +229,7 @@ func Example_orderedCalls() {
 	cache.Get("foo")
 	cache.Put("foo", "bar")
 	// 3. Assert that all expected methods were called.
-	mock.AssertExpectedCalls(t, cache)
+	vermock.AssertExpectedCalls(t, cache)
 	// mock will fail the test because the call to Get is before the call
 	// to Put.
 	fmt.Println("less than expected:", t.Failed())
@@ -242,15 +242,15 @@ func Example_orderedCalls() {
 func Example_mixedOrderedCalls() {
 	t := &exampleT{} // or any testing.TB, your test does not create this
 	// 1. Create a mock object with ExpectInOrder.
-	get := mock.Expect[mockCache]("Get", func(key string) (any, bool) {
+	get := vermock.Expect[mockCache]("Get", func(key string) (any, bool) {
 		return "bar", true
 	})
-	put := mock.Expect[mockCache]("Put", func(key string, value any) error {
+	put := vermock.Expect[mockCache]("Put", func(key string, value any) error {
 		return nil
 	})
-	var cache Cache = mock.New(t,
+	var cache Cache = vermock.New(t,
 		get, put,
-		mock.ExpectInOrder(put, get),
+		vermock.ExpectInOrder(put, get),
 		get, put,
 	)
 	// 2. Use the mock object in your code under test.
@@ -259,7 +259,7 @@ func Example_mixedOrderedCalls() {
 		cache.Get(fmt.Sprint("foo", i))
 	}
 	// 3. Assert that all expected methods were called.
-	mock.AssertExpectedCalls(t, cache)
+	vermock.AssertExpectedCalls(t, cache)
 	// mock will not fail the test
 	fmt.Println("less than expected:", t.Failed())
 	// Output:

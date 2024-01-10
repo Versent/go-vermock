@@ -1,4 +1,4 @@
-package mock
+package vermock
 
 type ordered struct {
 	inOrder bool

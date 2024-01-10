@@ -14,13 +14,13 @@ import (
 	"rsc.io/script"
 	"rsc.io/script/scripttest"
 
-	"github.com/Versent/go-mock/internal/cmd/mockgen"
-	"github.com/Versent/go-mock/internal/mock"
+	vermockgen "github.com/Versent/go-vermock/internal/cmd/vermockgen"
+	"github.com/Versent/go-vermock/internal/mock"
 )
 
 func TestGenerate(t *testing.T) {
 	engine := script.NewEngine()
-	engine.Cmds["mockgen"] = &genCmd{}
+	engine.Cmds["vermockgen"] = &genCmd{}
 	mutdir, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
@@ -46,8 +46,8 @@ func (m *genCmd) Run(s *script.State, args ...string) (script.WaitFunc, error) {
 	if err != nil {
 		return nil, err
 	}
-	l := log.New(stderr, "mockgen: ", 0)
-	genCmd := mockgen.NewGenCmd(l, f)
+	l := log.New(stderr, "vermockgen: ", 0)
+	genCmd := vermockgen.NewGenCmd(l, f)
 	status := genCmd.Execute(s.Context(), f, mock.WithDir(s.Getwd()))
 	return func(s *script.State) (_, _ string, err error) {
 		if status != 0 {
@@ -58,7 +58,7 @@ func (m *genCmd) Run(s *script.State, args ...string) (script.WaitFunc, error) {
 }
 
 func (m *genCmd) Usage() *script.CmdUsage {
-	genCmd := &mockgen.GenCmd{}
+	genCmd := &vermockgen.GenCmd{}
 	usage := strings.Split(genCmd.Usage(), "\n")
 	args, detail := usage[0], usage[1:]
 	for len(detail) > 0 && detail[0] == "" {
