@@ -9,14 +9,14 @@ import (
 
 	"github.com/google/subcommands"
 
-	"github.com/Versent/go-mock/internal/cmd/mockgen"
+	"github.com/Versent/go-vermock/internal/cmd/vermockgen"
 )
 
 func main() {
 	subcommands.Register(subcommands.CommandsCommand(), "")
 	subcommands.Register(subcommands.FlagsCommand(), "")
 	subcommands.Register(subcommands.HelpCommand(), "")
-	subcommands.Register(&mockgen.GenCmd{}, "")
+	subcommands.Register(&vermockgen.GenCmd{}, "")
 
 	// Initialize the default logger to log to stderr.
 	log.SetFlags(0)
@@ -30,7 +30,7 @@ func main() {
 	// Default to running the "gen" command.
 	if args := os.Args[1:]; len(args) == 0 || !allCmds[args[0]] {
 		f := flag.NewFlagSet("gen", flag.ContinueOnError)
-		genCmd := mockgen.NewGenCmd(nil, f)
+		genCmd := vermockgen.NewGenCmd(nil, f)
 		f.Usage = func() {
 			cdr := subcommands.DefaultCommander
 			cdr.ExplainCommand(cdr.Error, genCmd)

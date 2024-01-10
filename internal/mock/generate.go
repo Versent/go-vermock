@@ -48,7 +48,7 @@ type GenerateOptions struct {
 	Header []byte
 
 	// PrefixOutputFile is the prefix of the file name to write the generated
-	// output to. The suffix will be "mock_gen.go" or "mock_gen_test.go".
+	// output to. The suffix will be "vermock_gen.go" or "vermock_gen_test.go".
 	PrefixOutputFile string
 
 	// Tags is a list of additional build tags to add to the generated file.
@@ -96,7 +96,7 @@ func WithWDFallback() GenerateOption {
 }
 
 // WithPrefixFileName sets the prefix of the file name to write the generated
-// output to. The suffix will be "mock_gen.go" or "mock_gen_test.go".
+// output to. The suffix will be "vermock_gen.go" or "vermock_gen_test.go".
 func WithPrefixFileName(prefix string) GenerateOption {
 	return func(opts *GenerateOptions) error {
 		opts.PrefixOutputFile = prefix
@@ -170,16 +170,16 @@ func WithArgs(args ...any) GenerateOption {
 
 // Generate generates a code file for each package matching the given patterns.
 // The code file will contain mock implementations for each struct type in any
-// file in the package that has the mockstub build tag.  As a consequence, the
+// file in the package that has the vermockstub build tag.  As a consequence, the
 // generated files will not be included in the package's build when using the
-// mockstub build tag.  An implementation for each method of each interface
+// vermockstub build tag.  An implementation for each method of each interface
 // type that the struct type embeds will be generated, unless an implementation
 // already exists elsewhere in the package.
-// The generated files will be named mock_gen.go, with an optional prefix.
+// The generated files will be named vermock_gen.go, with an optional prefix.
 // The generated files will also include a go:generate comment that can be used
 // to regenerate the file.
 func Generate(ctx context.Context, patterns []string, opts GenerateOptions) ([]GenerateResult, []error) {
-	tags := "-tags=mockstub"
+	tags := "-tags=vermockstub"
 	if opts.Tags != "" {
 		tags += " " + opts.Tags
 	}
@@ -198,7 +198,7 @@ func Generate(ctx context.Context, patterns []string, opts GenerateOptions) ([]G
 			continue
 		}
 
-		outputFile := opts.PrefixOutputFile + "mock_gen"
+		outputFile := opts.PrefixOutputFile + "vermock_gen"
 		if strings.HasSuffix(pkg.Name, "_test") {
 			outputFile += "_test"
 		}
@@ -247,10 +247,10 @@ func detectOutputDir(paths []string) (string, error) {
 func isMockStub(syntax *ast.File) bool {
 	for _, group := range syntax.Comments {
 		for _, comment := range group.List {
-			if comment.Text == "// +build mockstub" {
+			if comment.Text == "// +build vermockstub" {
 				return true
 			}
-			if strings.HasPrefix(comment.Text, "//go:build mockstub") {
+			if strings.HasPrefix(comment.Text, "//go:build vermockstub") {
 				return true
 			}
 		}
@@ -259,7 +259,7 @@ func isMockStub(syntax *ast.File) bool {
 }
 
 func findFunctions(g *gen, pkg *packages.Package) {
-	pkgName, _ := g.resolvePackageName("github.com/Versent/go-mock")
+	pkgName, _ := g.resolvePackageName("github.com/Versent/go-vermock")
 	for _, syntax := range pkg.Syntax {
 		for _, decl := range syntax.Decls {
 			funcDecl, ok := g.addFunc(decl)
@@ -267,14 +267,14 @@ func findFunctions(g *gen, pkg *packages.Package) {
 				continue
 			}
 			if pkgName == "" {
-				// mock is not imported,
+				// vermock is not imported,
 				// so there cannot not be any custom functions
 				continue
 			}
 			if funcDecl.Recv != nil || funcDecl.Body == nil {
 				continue
 			}
-			// search for calls to mock.Expect or mock.ExpectMany
+			// search for calls to vermock.Expect or vermock.ExpectMany
 			var funcName, structName, methodName string
 			ast.Inspect(funcDecl.Body, func(node ast.Node) (next bool) {
 				next = true
@@ -494,7 +494,7 @@ func addMockMethod(g *gen, structName, methodName string, sig *types.Signature) 
 	methDecl.Body = &ast.BlockStmt{List: []ast.Stmt{}}
 	call := &ast.CallExpr{
 		Fun: &ast.SelectorExpr{
-			X:   ast.NewIdent(g.resolveImportName("mock", "github.com/Versent/go-mock")),
+			X:   ast.NewIdent(g.resolveImportName("vermock", "github.com/Versent/go-vermock")),
 			Sel: ast.NewIdent(fmt.Sprintf("Call%d", sig.Results().Len())),
 		},
 		Args: []ast.Expr{
@@ -565,7 +565,7 @@ func addExpectFunc(g *gen, funcName, structName, methodName string, sig *types.S
 		delegateType.Params.List = append(delegateType.Params.List, &ast.Field{
 			Names: []*ast.Ident{{Name: "_"}},
 			Type: &ast.SelectorExpr{
-				X:   ast.NewIdent(g.resolveImportName("mock", "github.com/Versent/go-mock")),
+				X:   ast.NewIdent(g.resolveImportName("vermock", "github.com/Versent/go-vermock")),
 				Sel: ast.NewIdent("CallCount"),
 			},
 		})
@@ -598,7 +598,7 @@ func addExpectFunc(g *gen, funcName, structName, methodName string, sig *types.S
 				Results: []ast.Expr{&ast.CallExpr{
 					Fun: &ast.IndexListExpr{
 						X: &ast.SelectorExpr{
-							X:   ast.NewIdent(g.resolveImportName("mock", "github.com/Versent/go-mock")),
+							X:   ast.NewIdent(g.resolveImportName("vermock", "github.com/Versent/go-vermock")),
 							Sel: ast.NewIdent(funcName),
 						},
 						Indices: []ast.Expr{ast.NewIdent(structName)},
@@ -833,9 +833,9 @@ func (g *gen) frame(tags string) []byte {
 	if len(tags) > 0 {
 		tags = fmt.Sprintf(" gen -tags %q", tags)
 	}
-	buf.WriteString("// Code generated by mockgen. DO NOT EDIT.\n\n")
-	buf.WriteString("//go:generate go run -mod=mod github.com/Versent/go-mock/cmd/mockgen" + tags + "\n")
-	buf.WriteString("//+build !mockstub\n\n")
+	buf.WriteString("// Code generated by vermockgen. DO NOT EDIT.\n\n")
+	buf.WriteString("//go:generate go run -mod=mod github.com/Versent/go-vermock/cmd/vermockgen" + tags + "\n")
+	buf.WriteString("//+build !vermockstub\n\n")
 	buf.WriteString("package ")
 	buf.WriteString(g.pkg.Name)
 	buf.WriteString("\n\n")

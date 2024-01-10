@@ -1,4 +1,4 @@
-module github.com/Versent/go-mock
+module github.com/Versent/go-vermock
 
 go 1.20
 

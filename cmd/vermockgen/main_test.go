@@ -23,8 +23,8 @@ func TestMockgen(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	// Temporary directory for mockgen binary.
-	bindir, err := os.MkdirTemp("", "mockgen")
+	// Temporary directory for vermockgen binary.
+	bindir, err := os.MkdirTemp("", "vermockgen")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -41,7 +41,7 @@ func TestMain(m *testing.M) {
 
 	// When running with -test.gocoverdir, forward this setting to each
 	// test script.
-	fset := flag.NewFlagSet("mockgen", flag.ContinueOnError)
+	fset := flag.NewFlagSet("vermockgen", flag.ContinueOnError)
 	fset.SetOutput(&bytes.Buffer{}) // ignore errors
 	covdir := fset.String("test.gocoverdir", "", "write coverage intermediate files to this directory")
 	err = fset.Parse(os.Args[1:])

@@ -1,6 +1,6 @@
-// Package mock provides a flexible and functional mocking framework for Go
+// Package vermock provides a flexible and functional mocking framework for Go
 // tests.
-package mock
+package vermock
 
 import (
 	"fmt"
@@ -45,7 +45,7 @@ func New[T any](t testing.TB, opts ...Option[T]) *T {
 		Delegates: Delegates{},
 	}
 	if _, ok := registry[key]; ok {
-		panic(fmt.Sprintf("mock.New: zero-sized type used to construct more than one mock: %T", key))
+		panic(fmt.Sprintf("vermock.New: zero-sized type used to construct more than one mock: %T", key))
 	}
 	registry[key] = mock
 	t.Cleanup(func() {
@@ -69,7 +69,7 @@ func New[T any](t testing.TB, opts ...Option[T]) *T {
 func Expect[T any](name string, fn any) Option[T] {
 	funcType := reflect.TypeOf(fn)
 	if funcType.Kind() != reflect.Func {
-		panic(fmt.Sprintf("mock.Expect: expected function, got %T", fn))
+		panic(fmt.Sprintf("vermock.Expect: expected function, got %T", fn))
 	}
 	return func(key *T) {
 		mock := registry[key]
@@ -95,7 +95,7 @@ func Expect[T any](name string, fn any) Option[T] {
 func ExpectMany[T any](name string, fn any) Option[T] {
 	funcType := reflect.TypeOf(fn)
 	if funcType.Kind() != reflect.Func {
-		panic(fmt.Sprintf("mock.ExpectMany: expected function, got %T", fn))
+		panic(fmt.Sprintf("vermock.ExpectMany: expected function, got %T", fn))
 	}
 	return func(key *T) {
 		mock := registry[key]
