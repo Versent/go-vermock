@@ -50,3 +50,14 @@ jobs:
           path: |
             ${{ runner.temp }}/test.log
             ${{ runner.temp }}/coverage.out
+
+  code_coverage:
+    name: Coverage review robot
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: fgrosse/go-coverage-report@v1.0.0
+        with:
+          coverage-artifact-name: test-logs
+          coverage-file-name: coverage.out
