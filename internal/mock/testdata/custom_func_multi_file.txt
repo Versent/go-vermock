@@ -3,6 +3,8 @@
 
 replace ../../../.. $MUT go.mod
 
+exec go mod tidy
+
 vermockgen
 
 cmpenv stdout testdata/stdout

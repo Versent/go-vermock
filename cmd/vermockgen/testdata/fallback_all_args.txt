@@ -14,12 +14,6 @@ module test
 go 1.20
 
 require github.com/Versent/go-vermock v0.0.0-00010101000000-000000000000
--- tools.go --
-package main
-
-import (
-	_ "github.com/Versent/go-vermock/cmd/vermockgen"
-)
 -- HEADER --
 // HEADER
 -- mock.go --
