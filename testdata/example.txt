@@ -1,11 +1,27 @@
-package vermock_test
+# Complete example usage of vermockgen.
+#
+# For a description of this format see https://pkg.go.dev/golang.org/x/tools/txtar and https://pkg.go.dev/rsc.io/script@v0.0.1#hdr-Script_Language.
 
-import (
-	"fmt"
-	"testing"
+# Setup module.
+exec go mod edit -replace github.com/Versent/go-vermock=$MUT
+exec go mod tidy
 
-	vermock "github.com/Versent/go-vermock"
-)
+# Run vermockgen.
+exec vermockgen
+
+# Run go test and strip out elapsed time and coverage data.
+exec bash -c 'go test -v ${GOCOVERDIR:+-coverpkg=github.com/Versent/go-vermock/... -test.gocoverdir=$GOCOVERDIR} | sed "/\\scoverage:\\s/d;s/\\s*\\(([0-9.]\\+s)\\|\t[0-9.]\\+s\\)$//"'
+
+# Compare with expected output
+cmpenv stdout testdata/stdout
+cmpenv stderr testdata/stderr
+
+-- go.mod --
+module example.com
+
+go 1.20
+-- example.go --
+package example
 
 // Cache contains a variety of methods with different signatures.
 type Cache interface {
@@ -14,63 +30,51 @@ type Cache interface {
 	Delete(string)
 	Load(...string)
 }
+-- mock_test.go --
+//go:build vermockstub
 
-// mockCache is a mock implementation of Cache.  It can be anything, but
-// zero-sized types are problematic.
+package example_test
+
+import (
+	eg "example.com"
+)
+
 type mockCache struct {
-	_ byte // prevent zero-sized type
-}
-
-// Put returns one value, so use vermock.Call1.
-func (m *mockCache) Put(key string, value any) error {
-	return vermock.Call1[error](m, "Put", key, value)
-}
-
-// Get returns two values, so use vermock.Call2.
-func (m *mockCache) Get(key string) (any, bool) {
-	return vermock.Call2[any, bool](m, "Get", key)
-}
-
-// Delete returns no values, so use vermock.Call0.
-func (m *mockCache) Delete(key string) {
-	vermock.Call0(m, "Delete", key)
-}
-
-// Load is variadic, the last argument must be passed as a slice to one of the
-// vermock.CallN functions.
-func (m *mockCache) Load(keys ...string) {
-	vermock.Call0(m, "Load", keys)
+	eg.Cache
 }
 
 // UnusedCache is useful to show that a test's intent is that none of the
 // interface methods are called.
 var UnusedCache func(*mockCache) = nil
+-- example_test.go --
+// To avoid problems when generating vermockgen code after the tests are
+// defined, use buildtags to hide this file from the generator.
+// Alternatively, just ensure the vermockgen code is generated before writing
+// your tests (and don't forget to commit it to your SCM system).
+//go:build !vermockstub
 
-func ExampleUnusedCache() {
-	// See ./testdata/example.txt for a full example.
-	t := &exampleT{} // or any testing.TB, your test does not create this
+package example_test
+
+import (
+	"fmt"
+	"testing"
+
+	vermock "github.com/Versent/go-vermock"
+
+	eg "example.com"
+)
+
+func TestUnusedCache(t *testing.T) {
 	// 1. Create a mock object.
-	var cache Cache = vermock.New(t, UnusedCache)
+	var cache eg.Cache = vermock.New(t, UnusedCache)
 	// 2. Use the mock object in your code under test.
 	// 3. Assert that all expected methods were called.
 	vermock.AssertExpectedCalls(t, cache)
-	// mock will fail a test if a call is made to an unexpected method or if
-	// the expected methods are not called.
-	fmt.Println("less than expected:", t.Failed())
-	// Output:
-	// less than expected: false
 }
 
-// ExpectDelete is a helper function that hides the stringiness of vermock.
-func ExpectDelete(delegate func(t testing.TB, key string)) func(*mockCache) {
-	return vermock.Expect[mockCache]("Delete", delegate)
-}
-
-func Example_pass() {
-	// See ./testdata/example.txt for a full example.
-	t := &exampleT{} // or any testing.TB, your test does not create this
+func TestPass(t *testing.T) {
 	// 1. Create a mock object with expected calls.
-	var cache Cache = vermock.New(t,
+	var cache eg.Cache = vermock.New(t,
 		// delegate function can receive testing.TB
 		vermock.Expect[mockCache]("Get", func(t testing.TB, key string) (any, bool) {
 			return "bar", true
@@ -90,21 +94,11 @@ func Example_pass() {
 	cache.Delete("foo")
 	// 3. Assert that all expected methods were called.
 	vermock.AssertExpectedCalls(t, cache)
-	// mock will not fail the test
-	fmt.Println("less than expected:", t.Failed())
-	// Output:
-	// call to Put: 0/0
-	// call to Get: 0/0
-	// call to Delete: 0/0
-	// call to Delete: 1/0
-	// less than expected: false
 }
 
-func Example_unmetExpectation() {
-	// See ./testdata/example.txt for a full example.
-	t := &testing.T{} // or any testing.TB, your test does not create this
+func TestUnmetExpectation(t *testing.T) {
 	// 1. Create a mock object with expected calls.
-	var cache Cache = vermock.New(t,
+	var cache eg.Cache = vermock.New(t,
 		// delegate function can receive testing.TB
 		vermock.Expect[mockCache]("Put", func(t testing.TB, key string, value any) error {
 			fmt.Println("put", key, value)
@@ -130,20 +124,11 @@ func Example_unmetExpectation() {
 	cache.Delete("foo")
 	// 3. Assert that all expected methods were called.
 	vermock.AssertExpectedCalls(t, cache)
-	// mock will fail the test because the second call to Delete is not met.
-	fmt.Println("less than expected:", t.Failed())
-	// Output:
-	// put foo bar
-	// get foo
-	// delete foo
-	// less than expected: true
 }
 
-func Example_unexpectedCall() {
-	// See ./testdata/example.txt for a full example.
-	t := &testing.T{} // or any testing.TB, your test does not create this
+func TestUnexpectedCall(t *testing.T) {
 	// 1. Create a mock object with expected calls.
-	var cache Cache = vermock.New(t,
+	var cache eg.Cache = vermock.New(t,
 		// delegate function can receive testing.TB
 		vermock.Expect[mockCache]("Put", func(t testing.TB, key string, value any) error {
 			fmt.Println("put", key, value)
@@ -160,19 +145,11 @@ func Example_unexpectedCall() {
 	cache.Delete("foo")
 	// 3. Assert that all expected methods were called.
 	vermock.AssertExpectedCalls(t, cache)
-	// mock will fail the test because the call to Get is not expected.
-	fmt.Println("more than expected:", t.Failed())
-	// Output:
-	// put foo bar
-	// delete foo
-	// more than expected: true
 }
 
-func Example_allowRepeatedCalls() {
-	// See ./testdata/example.txt for a full example.
-	t := &testing.T{} // or any testing.TB, your test does not create this
+func TestAllowRepeatedCalls(t *testing.T) {
 	// 1. Create a mock object with ExpectMany.
-	var cache Cache = vermock.New(t,
+	var cache eg.Cache = vermock.New(t,
 		// delegate function may receive a call counter and the method arguments
 		vermock.ExpectMany[mockCache]("Load", func(n vermock.CallCount, keys ...string) {
 			fmt.Println("load", n, keys)
@@ -203,23 +180,11 @@ func Example_allowRepeatedCalls() {
 	cache.Load("foo", "bar", "baz")
 	// 3. Assert that all expected methods were called.
 	vermock.AssertExpectedCalls(t, cache)
-	// mock will not fail the test because ExpectMany allows repeated calls.
-	fmt.Println("more than expected:", t.Failed())
-	// Output:
-	// load 0 [foo bar]
-	// load 1 [baz]
-	// load 2 [foo]
-	// load 3 [bar]
-	// load 4 [baz]
-	// load 4 [foo bar baz]
-	// more than expected: false
 }
 
-func Example_orderedCalls() {
-	// See ./testdata/example.txt for a full example.
-	t := &testing.T{} // or any testing.TB, your test does not create this
+func TestOrderedCalls(t *testing.T) {
 	// 1. Create a mock object with ExpectInOrder.
-	var cache Cache = vermock.New(t,
+	var cache eg.Cache = vermock.New(t,
 		vermock.ExpectInOrder(
 			vermock.Expect[mockCache]("Put", func(key string, value any) error {
 				fmt.Println("put", key, value)
@@ -236,18 +201,9 @@ func Example_orderedCalls() {
 	cache.Put("foo", "bar")
 	// 3. Assert that all expected methods were called.
 	vermock.AssertExpectedCalls(t, cache)
-	// mock will fail the test because the call to Get is before the call
-	// to Put.
-	fmt.Println("less than expected:", t.Failed())
-	// Output:
-	// get foo
-	// put foo bar
-	// less than expected: true
 }
 
-func Example_mixedOrderedCalls() {
-	// See ./testdata/example.txt for a full example.
-	t := &exampleT{} // or any testing.TB, your test does not create this
+func TestMixedOrderedCalls(t *testing.T) {
 	// 1. Create a mock object with ExpectInOrder.
 	get := vermock.Expect[mockCache]("Get", func(key string) (any, bool) {
 		return "bar", true
@@ -255,7 +211,7 @@ func Example_mixedOrderedCalls() {
 	put := vermock.Expect[mockCache]("Put", func(key string, value any) error {
 		return nil
 	})
-	var cache Cache = vermock.New(t,
+	var cache eg.Cache = vermock.New(t,
 		get, put,
 		vermock.ExpectInOrder(put, get),
 		get, put,
@@ -267,48 +223,63 @@ func Example_mixedOrderedCalls() {
 	}
 	// 3. Assert that all expected methods were called.
 	vermock.AssertExpectedCalls(t, cache)
-	// mock will not fail the test
-	fmt.Println("less than expected:", t.Failed())
-	// Output:
-	// call to Put: 0/0
-	// call to Get: 0/0
-	// call to Put: 1/1
-	// call to Get: 1/2
-	// call to Put: 2/2
-	// call to Get: 2/2
-	// less than expected: false
 }
-
-var _ testing.TB = &exampleT{}
-
-type exampleT struct {
-	testing.T
-}
-
-func (t *exampleT) Fatal(args ...any) {
-	fmt.Println(args...)
-	t.T.FailNow()
-}
-
-func (t *exampleT) Fatalf(format string, args ...any) {
-	fmt.Printf(format+"\n", args...)
-	t.T.FailNow()
-}
-
-func (t *exampleT) Error(args ...any) {
-	fmt.Println(args...)
-	t.T.Fail()
-}
-
-func (t *exampleT) Errorf(format string, args ...any) {
-	fmt.Printf(format+"\n", args...)
-	t.T.Fail()
-}
-
-func (t *exampleT) Log(args ...any) {
-	fmt.Println(args...)
-}
-
-func (t *exampleT) Logf(format string, args ...any) {
-	fmt.Printf(format+"\n", args...)
-}
+-- testdata/stderr --
+-- testdata/stdout --
+=== RUN   TestUnusedCache
+--- PASS: TestUnusedCache
+=== RUN   TestPass
+    vermock_gen_test.go:65: call to Put: 0/0
+    vermock_gen_test.go:41: call to Get: 0/0
+    vermock_gen_test.go:29: call to Delete: 0/0
+    vermock_gen_test.go:29: call to Delete: 1/0
+--- PASS: TestPass
+=== RUN   TestUnmetExpectation
+    vermock_gen_test.go:65: call to Put: 0/0
+put foo bar
+    vermock_gen_test.go:41: call to Get: 0/0
+get foo
+    vermock_gen_test.go:29: call to Delete: 0/0
+delete foo
+    example_test.go:77: failed to make call to Delete: only got one call
+--- FAIL: TestUnmetExpectation
+=== RUN   TestUnexpectedCall
+    vermock_gen_test.go:65: call to Put: 0/0
+put foo bar
+    vermock_gen_test.go:41: unexpected call to Get
+    vermock_gen_test.go:29: call to Delete: 0/0
+delete foo
+--- FAIL: TestUnexpectedCall
+=== RUN   TestAllowRepeatedCalls
+    vermock_gen_test.go:53: call to Load: 0/0
+load 0 [foo bar]
+    vermock_gen_test.go:53: call to Load: 1/0
+load 1 [baz]
+    vermock_gen_test.go:53: call to Load: 2/0
+load 2 [foo]
+    vermock_gen_test.go:53: call to Load: 3/0
+load 3 [bar]
+    vermock_gen_test.go:53: call to Load: 4/0
+load 4 [baz]
+    vermock_gen_test.go:53: call to Load: 5/0
+load 4 [foo bar baz]
+--- PASS: TestAllowRepeatedCalls
+=== RUN   TestOrderedCalls
+    vermock_gen_test.go:41: out of order call to Get: expected 2, got 1
+    vermock_gen_test.go:41: call to Get: 0/1
+get foo
+    vermock_gen_test.go:65: out of order call to Put: expected 1, got 2
+    vermock_gen_test.go:65: call to Put: 0/2
+put foo bar
+--- FAIL: TestOrderedCalls
+=== RUN   TestMixedOrderedCalls
+    vermock_gen_test.go:65: call to Put: 0/0
+    vermock_gen_test.go:41: call to Get: 0/0
+    vermock_gen_test.go:65: call to Put: 1/1
+    vermock_gen_test.go:41: call to Get: 1/2
+    vermock_gen_test.go:65: call to Put: 2/2
+    vermock_gen_test.go:41: call to Get: 2/2
+--- PASS: TestMixedOrderedCalls
+FAIL
+exit status 1
+FAIL	example.com
