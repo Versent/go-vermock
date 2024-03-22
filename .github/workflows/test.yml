@@ -19,12 +19,18 @@ jobs:
       - name: Tidy
         run: go mod tidy && git diff --exit-code
 
+      - name: Install gotestfmt
+        uses: gotesttools/gotestfmt-action@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Test
         run: |
+          set -euo pipefail
           mkdir -p "${{ runner.temp }}/covdata"
-          go test -v -cover ./...  -test.gocoverdir="${{ runner.temp }}/covdata"
-          go tool covdata percent -i="${{ runner.temp }}/covdata"
+          go test -v -cover ./... -json -test.gocoverdir="${{ runner.temp }}/covdata" 2>&1 | tee "${{ runner.temp }}/test.log" | gotestfmt
           go tool covdata textfmt -o "${{ runner.temp }}/coverage.out" -i="${{ runner.temp }}/covdata"
+          go tool covdata percent -i="${{ runner.temp }}/covdata"
 
       - name: Coverage report
         uses: ncruces/go-coverage-report@v0
@@ -32,7 +38,15 @@ jobs:
           coverage-file: "${{ runner.temp }}/coverage.out"
           report: true
           chart: true
-          amend: true
         if: |
           github.event_name == 'push'
         continue-on-error: true
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-logs
+          path: |
+            ${{ runner.temp }}/test.log
+            ${{ runner.temp }}/coverage.out

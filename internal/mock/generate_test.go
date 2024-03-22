@@ -30,7 +30,11 @@ func TestGenerate(t *testing.T) {
 		t,
 		context.Background(),
 		engine,
-		[]string{"MUT=" + mutdir},
+		[]string{
+			"PATH=" + os.Getenv("PATH"),
+			"HOME=" + os.Getenv("HOME"),
+			"MUT=" + mutdir,
+		},
 		"testdata/*.txt",
 	)
 }
