@@ -10,7 +10,7 @@ exec go mod tidy
 exec vermockgen
 
 # Run go test and strip out elapsed time and coverage data.
-exec bash -c 'go test -v ${GOCOVERDIR:+-coverpkg=github.com/Versent/go-vermock/... -test.gocoverdir=$GOCOVERDIR} | sed "/\\scoverage:\\s/d;s/\\s*\\(([0-9.]\\+s)\\|\t[0-9.]\\+s\\)$//"'
+go-test -v
 
 # Compare with expected output
 cmpenv stdout testdata/stdout
@@ -280,6 +280,4 @@ put foo bar
     vermock_gen_test.go:65: call to Put: 2/2
     vermock_gen_test.go:41: call to Get: 2/2
 --- PASS: TestMixedOrderedCalls
-FAIL
 exit status 1
-FAIL	example.com

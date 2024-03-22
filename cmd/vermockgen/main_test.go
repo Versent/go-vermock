@@ -16,6 +16,7 @@ import (
 )
 
 var env []string
+var covdir *string
 
 func TestMockgen(t *testing.T) {
 	ctx, eng := context.Background(), script.NewEngine()
@@ -43,7 +44,7 @@ func TestMain(m *testing.M) {
 	// test script.
 	fset := flag.NewFlagSet("vermockgen", flag.ContinueOnError)
 	fset.SetOutput(&bytes.Buffer{}) // ignore errors
-	covdir := fset.String("test.gocoverdir", "", "write coverage intermediate files to this directory")
+	covdir = fset.String("test.gocoverdir", "", "write coverage intermediate files to this directory")
 	err = fset.Parse(os.Args[1:])
 	for err != nil {
 		err = fset.Parse(fset.Args())
